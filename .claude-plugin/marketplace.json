@@ -1,0 +1,13 @@
+{
+    "name": "focus-claude-code",
+    "owner": {
+        "name": "Kiwi",
+        "url": "https://github.com/<username>/focus-claude-code"
+    },
+    "plugins": [
+        {
+            "name": "focus",
+            "source": "./"
+        }
+    ]
+}

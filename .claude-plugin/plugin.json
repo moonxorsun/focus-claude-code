@@ -1,0 +1,17 @@
+{
+    "name": "focus",
+    "version": "1.1.0",
+    "description": "Single-file planning workflow for complex tasks",
+    "hooks": {
+        "SessionStart": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "python ${CLAUDE_PLUGIN_ROOT}/install.py"
+                    }
+                ]
+            }
+        ]
+    }
+}

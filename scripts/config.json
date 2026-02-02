@@ -1,0 +1,84 @@
+{
+    "logging": {
+        "level": "INFO",
+        "rotate_lines": 1000
+    },
+    "start": {
+        "confirm_before_modify": {
+            "enabled": true,
+            "use_haiku": false
+        },
+        "threshold": 5,
+        "recite_threshold": 3,
+        "full_reminder_interval_minutes": 30,
+        "max_strikes": 3,
+        "error_patterns": ["error:", "failed:", "exception:", "traceback", "does not exist", "permission denied"],
+        "weights": {
+            "Read": 1,
+            "Glob": 1,
+            "Grep": 1,
+            "WebSearch": 2,
+            "WebFetch": 2,
+            "UserPrompt": 2
+        },
+        "search_tools": ["Read", "Glob", "Grep", "WebSearch", "WebFetch", "UserPrompt"],
+        "modify_tools": ["Write", "Edit", "Bash"],
+        "recommendations": {
+            "Read": ["Architecture", "Conventions"],
+            "Glob": ["Architecture"],
+            "Grep": ["Architecture", "Conventions"],
+            "WebSearch": ["External Knowledge", "Techniques"],
+            "WebFetch": ["External Knowledge", "Techniques"],
+            "UserPrompt": ["AI Norms", "Decisions"]
+        },
+        "all_categories": "architecture|bugs|resolved_bugs|troubleshooting|ai_norms|conventions|external_knowledge|techniques|decisions|config"
+    },
+    "checkpoint": {
+        "error_detection": true,
+        "omission_detection": true,
+        "use_haiku": false,
+        "haiku_max_tokens": 500,
+        "omission_char_budget": 10000
+    },
+    "done": {
+        "error_patterns": ["error:", "failed:", "exception:", "traceback"],
+        "edit_tools": ["Edit", "Write"],
+        "repeated_edit_threshold": 3,
+        "archive": {
+            "auto_create_missing_files": false,
+            "batch_size": 5,
+            "targets": {
+                "architecture": "docs/development/architecture.md",
+                "bugs": "docs/development/known_bugs.md",
+                "resolved_bugs": "docs/development/resolved_bugs.md",
+                "troubleshooting": "docs/development/troubleshooting.md",
+                "ai_norms": ".claude/CLAUDE.md",
+                "conventions": "docs/development/",
+                "external_knowledge": "docs/research/",
+                "techniques": "docs/development/techniques.md",
+                "decisions": "docs/development/decisions.md",
+                "config": "docs/development/build_system.md"
+            }
+        }
+    },
+    "recover": {
+        "max_sessions": 5,
+        "char_budget": 50000,
+        "list_char_budget": 5000,
+        "max_entry_length": 400,
+        "decay_factor": 0.5,
+        "min_session_budget": 1000,
+        "noise_patterns": [
+            "✅ CLAUDE.md 约束已确认",
+            "CLAUDE.md 约束已确认"
+        ],
+        "filter_tools": [],
+        "filter_tool_categories": ["search", "modify", "task"],
+        "key_tools": ["Read", "Glob", "Grep", "WebSearch", "WebFetch", "Write", "Edit", "Bash", "Task", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet"],
+        "tool_categories": {
+            "search": ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
+            "modify": ["Write", "Edit", "Bash"],
+            "task": ["Task", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet"]
+        }
+    }
+}
