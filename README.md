@@ -13,34 +13,6 @@ Focus uses `focus_context.md` as persistent "working memory on disk" to prevent 
 3. **Keep Wrong Stuff In** - Record errors in Issues table for learning
 4. **Plan is Required** - Always know: goal, current phase, remaining phases
 
-### Information Flow
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        CONTEXT                              │
-│                    (volatile, limited)                      │
-└─────────────────────────┬───────────────────────────────────┘
-                          │ [Information Persistence Reminder]
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   focus_context.md                          │
-│              (persistent during focus)                      │
-│  ┌─────────────┬──────────────┬───────────────────────┐    │
-│  │   Plan      │   Findings   │   Issues              │    │
-│  │  - [ ] ...  │  | Key | Val │  | Error | Resolution │    │
-│  └─────────────┴──────────────┴───────────────────────┘    │
-└─────────────────────────┬───────────────────────────────────┘
-                          │ [/focus:done archival]
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│                 PROJECT DOCUMENTATION                       │
-│                    (permanent)                              │
-│  ┌──────────────────┬────────────────┬─────────────────┐   │
-│  │ architecture.md  │ troubleshoot.md│ decisions.md    │   │
-│  └──────────────────┴────────────────┴─────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-```
-
 ---
 
 ## Quick Start
@@ -59,17 +31,76 @@ Focus uses `focus_context.md` as persistent "working memory on disk" to prevent 
 
 ---
 
+## Features
+
+| Feature | Description | Trigger |
+|---------|-------------|---------|
+| **Attention Recitation** | Inject Task/Plan/Phase into context | Every N searches (default: 3) |
+| **Information Persistence** | Remind to record findings | Weight sum >= 5 |
+| **Modification Reminder** | Remind to update focus_context.md | After Write/Edit/Bash |
+| **Confirm Before Modify** | Check user confirmation before edits | Before Write/Edit |
+| **3-Strike Error Protocol** | Force alternative approach after failures | Consecutive failures |
+| **Completion Check** | Verify all phases complete | Session end |
+| **Context Recovery** | Restore context from previous sessions | `/focus:recover` |
+| **Mid-Session Checkpoint** | Save progress without ending session | `/focus:checkpoint` |
+
+See [features.md](docs/features.md) for detailed specifications.
+
+### Information Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              CONTEXT                                        │
+│                          (volatile, limited)                                │
+└──────────────┬────^───────────────────────────^───────┬─────────────────────┘
+               │    │                               │       │
+               │    │ [Hook Recite]                 │       │ [Hook Recording]
+               │    │                               │       ▼
+               │    │                               │  ┌────────────────────┐
+               │    │             [command:recover] │  │ operations.jsonl   │
+ [Info Persist]│    │                               │  │ (tool_use_id index)│
+               ▼    │                               │  └─────────┬──────────┘
+┌───────────────────┴───────┐                       │            │
+│     focus_context.md      │───────────────────────┤            │ [Lookup]
+│    (during session)       │                       │            ▼
+│  ┌──────┬────────┬──────┐ │                       │  ┌────────────────────┐
+│  │ Plan │Findings│Issues│ │                       │  │ Session Transcript │
+│  └──────┴────────┴──────┘ │                       └──┤ (Claude Code JSONL)│
+└─────┬─────────────────────┘                          └─────────┬──────────┘
+      │                 ^                  [command:checkpoint]  │
+      │                 │                                        │
+      │                 └────────────────────────────────────────┤
+      │ [command:done]                               [auto-extract]
+      │                                                          ▼
+      │                                          ┌────────────────────────────┐
+      │                                          │    pending_issues.md       │
+      │                                          │    (error collection)      │
+      │                                          └─────────────┬──────────────┘
+      │                                        [command:done]  │
+      ▼                                                        ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            PROJECT DOCS (permanent)                         │
+│  ┌──────────────┬──────────────┬──────────────┬──────────────┬───────────┐  │
+│  │ dev_notes.md │ changelog.md │ features.md  │development.md│ design.md │  │
+│  └──────────────┴──────────────┴──────────────┴──────────────┴───────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+For detailed data flow descriptions, see [design.md](docs/design.md).
+
+---
+
 ## Installation
 
 ### Requirements
 
 - Python 3.8+
 
-### From Local Directory
+### From GitHub (Recommended)
 
-**Step 1: Add local directory as marketplace**
+**Step 1: Add GitHub repository as marketplace**
 ```bash
-/plugins marketplace add .claude/plugins
+/plugins marketplace add github:<YOUR_USERNAME>/focus-claude-code
 ```
 
 **Step 2: Install the plugin**
@@ -81,6 +112,20 @@ Installation scopes:
 - `--user`: Global (across all projects)
 - `--project`: Project-shared (synced with team)
 - `--local`: Local to current project only
+
+### From Local Directory
+
+If you have cloned the repository locally:
+
+**Step 1: Add local directory as marketplace**
+```bash
+/plugins marketplace add /path/to/focus-claude-code
+```
+
+**Step 2: Install the plugin**
+```bash
+/plugins install focus
+```
 
 ### Verify Installation
 
@@ -100,7 +145,7 @@ You should see `focus` in the list.
 
 ### 2. No Parallel Sessions
 
-> **⚠️ Warning:** This plugin does NOT support multiple Claude Code sessions using the same project directory simultaneously.
+> **Warning:** This plugin does NOT support multiple Claude Code sessions using the same project directory simultaneously.
 >
 > When starting a new session, if you see "Unfinished focus session detected", check the "Last activity" time:
 > - **Long ago** (hours/days): Safe to recover with `/focus:recover`
@@ -160,6 +205,19 @@ Create `.claude/config/focus.json`:
 }
 ```
 
+---
+
+## Token Costs
+
+| Operation | Context Tokens | External API |
+|-----------|----------------|--------------|
+| Normal session (per hour) | ~500-1000 | None |
+| Each Write/Edit (with Haiku) | ~20 | ~50-100 |
+| /focus:checkpoint | ~100 | 0-500 (optional) |
+| /focus:recover | ~500-2000 | None |
+
+**Note:** Haiku API features are disabled by default. See [token-costs.md](docs/token-costs.md) for tuning strategies.
+
 ### Optional AI Features
 
 Two features require the `anthropic` package (disabled by default):
@@ -178,112 +236,13 @@ export ANTHROPIC_API_KEY="your-api-key"
 
 ---
 
-## Template Structure
+## Documentation
 
-```markdown
-# Focus Context
-
-## Task
-[Brief description]
-
-## Plan
-- [ ] Phase 1: ...
-- [ ] Phase 2: ...
-
-## Current Phase
-Phase 1: [description]
-- Working on: ...
-- Blocked: (none)
-
-## Findings
-| Category | Discovery | Details |
-|----------|-----------|---------|
-
-## Issues
-| Category | Issue | Cause | Resolution |
-|----------|-------|-------|------------|
-
-## Decisions
-| Category | Decision | Rationale |
-|----------|----------|-----------|
-```
-
----
-
-## Session Files
-
-Focus uses temporary files in `$CLAUDE_FOCUS_DIR/` (default: `.claude/tmp/focus/`):
-
-| File | Purpose |
-|------|---------|
-| `focus_context.md` | Main planning document |
-| `operations.jsonl` | Operation history for recovery |
-| `action_count.json` | Information Persistence counter |
-| `pending_issues.md` | Auto-collected errors |
-| `logs/` | Debug and error logs |
-
----
-
-## Implementation Details
-
-### File Structure
-
-```
-focus/
-├── README.md                 # This file
-├── scripts/                  # All Python scripts
-│   ├── __init__.py           # Python package
-│   ├── config.json           # Unified configuration
-│   ├── focus_core.py         # Shared utilities (config, paths, helpers)
-│   ├── log_utils.py          # Logging utilities
-│   ├── focus_hook.py         # Unified hook handler
-│   ├── recover_context.py    # Context recovery
-│   └── extract_session_info.py # Session summary extraction
-├── skills/
-│   ├── start/
-│   │   └── SKILL.md          # Main skill definition + template
-│   ├── done/
-│   │   └── SKILL.md          # Completion workflow
-│   └── recover/
-│       └── SKILL.md          # Context recovery
-├── commands/
-│   └── ...
-└── docs/
-    ├── design_guide.md
-    └── references/
-        └── context_engineering_notes.md
-```
-
-### Skill-Level Hooks (Auto-configured)
-
-These hooks are defined in `skills/start/SKILL.md` and activate automatically when using `/focus:start`:
-
-| Hook | Trigger | Action |
-|------|---------|--------|
-| `PreToolUse` | Write, Edit | `handle_confirm_before_modify()` - check user confirmation via Haiku API |
-| `PreToolUse` | Read, Glob, Grep, WebSearch, etc. | `recite_objectives()` - inject plan summary |
-| `PreToolUse` | Search tools | Information Persistence Reminder (weight-based) |
-| `PostToolUse` | Write, Edit | Remind to update focus_context.md |
-| `PostToolUse` | All tools | 3-Strike Error Protocol check |
-| `Stop` | Session end | Check phase completion status |
-| `UserPromptSubmit` | New user message | Reset confirmation state |
-
-### Key Functions in focus_hook.py
-
-| Function | Purpose |
-|----------|---------|
-| `recite_objectives()` | Extract and display Task/Plan/Current Phase summary |
-| `extract_summary()` | Parse focus_context.md for summary sections |
-| `increment_and_check_counter()` | Track tool usage, trigger Information Persistence Reminder |
-| `check_and_update_strikes()` | 3-Strike Error Protocol - track failures and warn |
-| `handle_confirm_before_modify()` | Check user confirmation before Write/Edit via Haiku API |
-| `check_user_confirmation()` | Call Haiku API to verify user approved modification |
-| `check_phases_complete()` | Verify all phases marked `[x]` on session end |
-| `record_operation()` | Log operation IDs to operations.jsonl |
-
----
-
-## See Also
-
-- [design_guide.md](docs/design_guide.md) - Design philosophy and implementation details
-- [context_engineering_notes.md](docs/references/context_engineering_notes.md) - Context Engineering study notes (based on Manus article)
+| Document | Description |
+|----------|-------------|
+| [design.md](docs/design.md) | Design philosophy and architecture |
+| [features.md](docs/features.md) | Feature specifications and test cases |
+| [development.md](docs/development.md) | Implementation details, hooks, and functions |
+| [dev_notes.md](docs/dev_notes.md) | Development findings and decisions |
+| [changelog.md](docs/changelog.md) | Version history |
+| [context_engineering_notes.md](docs/references/context_engineering_notes.md) | Context Engineering study notes (Manus) |

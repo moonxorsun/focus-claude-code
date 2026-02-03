@@ -41,7 +41,7 @@ Create `.claude/config/focus.json`:
     "start": {
         "confirm_before_modify": {
             "enabled": true,
-            "use_haiku": true
+            "use_haiku": false
         },
         "threshold": 5,
         "recite_threshold": 3,
@@ -50,7 +50,7 @@ Create `.claude/config/focus.json`:
         "weights": {
             "Read": 1, "Glob": 1, "Grep": 1,
             "WebSearch": 2, "WebFetch": 2,
-            "UserPromptSubmit": 2
+            "UserPrompt": 2
         },
         "search_tools": ["Read", "Glob", "Grep", "WebSearch", "WebFetch"],
         "modify_tools": ["Write", "Edit", "Bash"]

@@ -52,16 +52,16 @@ This document describes all features of the Focus plugin with detailed specifica
 
 | Category | Template Section | Archive Location |
 |----------|------------------|------------------|
-| Architecture | Findings | `architecture.md` |
-| Conventions | Findings | `architecture.md` or `CLAUDE.md` |
-| Config | Findings | `build_system.md` |
-| External Knowledge | Findings | `research/` |
-| Techniques | Findings | `techniques.md` |
-| Bug (unresolved) | Issues | `known_bugs.md` |
-| Bug (resolved) | Issues | `resolved_bugs.md` |
-| Troubleshooting | Issues | `troubleshooting.md` |
-| AI Norms | Decisions | `CLAUDE.md` |
-| Decisions | Decisions | `decisions.md` |
+| Architecture | Findings | `docs/design.md` |
+| Conventions | Findings | `docs/development.md` |
+| Config | Findings | `docs/development.md` |
+| External Knowledge | Findings | `docs/dev_notes.md` |
+| Techniques | Findings | `docs/development.md` |
+| Bug (unresolved) | Issues | `docs/changelog.md` |
+| Bug (resolved) | Issues | `docs/changelog.md` |
+| Troubleshooting | Issues | `docs/dev_notes.md` |
+| AI Norms | Decisions | `.claude/CLAUDE.md` |
+| Decisions | Decisions | `docs/design.md` |
 
 ### Reminder Output Format
 
