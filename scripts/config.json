@@ -48,16 +48,16 @@
             "auto_create_missing_files": false,
             "batch_size": 5,
             "targets": {
-                "architecture": "docs/development/architecture.md",
-                "bugs": "docs/development/known_bugs.md",
-                "resolved_bugs": "docs/development/resolved_bugs.md",
-                "troubleshooting": "docs/development/troubleshooting.md",
+                "architecture": "docs/dev_notes.md",
+                "bugs": "docs/changelog.md",
+                "resolved_bugs": "docs/changelog.md",
+                "troubleshooting": "docs/dev_notes.md",
                 "ai_norms": ".claude/CLAUDE.md",
-                "conventions": "docs/development/",
-                "external_knowledge": "docs/research/",
-                "techniques": "docs/development/techniques.md",
-                "decisions": "docs/development/decisions.md",
-                "config": "docs/development/build_system.md"
+                "conventions": "docs/dev_notes.md",
+                "external_knowledge": "docs/dev_notes.md",
+                "techniques": "docs/dev_notes.md",
+                "decisions": "docs/dev_notes.md",
+                "config": "docs/development.md"
             }
         }
     },

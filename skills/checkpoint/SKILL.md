@@ -76,7 +76,7 @@ If `pending_issues.md` has items:
 
 1. Read `.claude/tmp/focus/pending_issues.md`
 2. For each issue, decide:
-   - **Archive**: If it reveals a pattern → add to `docs/development/troubleshooting.md`
+   - **Archive**: If it reveals a pattern → use `/focus:done` when session completes
    - **Discard**: If it's a user rejection or transient error
 
 Format in pending_issues.md:
@@ -98,10 +98,10 @@ For items in Findings/Issues/Decisions tables worth persisting:
 
 | Category | Destination |
 |----------|-------------|
-| Architecture | `docs/development/architecture.md` |
-| Bug (unresolved) | `docs/development/known_bugs.md` |
-| Bug (resolved) | `docs/development/resolved_bugs.md` |
-| Troubleshooting | `docs/development/troubleshooting.md` |
+| Architecture | Use `/focus:done` for archival |
+| Bug (unresolved) | Use `/focus:done` for archival |
+| Bug (resolved) | Use `/focus:done` for archival |
+| Troubleshooting | Use `/focus:done` for archival |
 | AI Norm | `.claude/CLAUDE.md` |
 
 After archiving, remove the item from focus_context.md tables.

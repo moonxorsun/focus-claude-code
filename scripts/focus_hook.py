@@ -550,13 +550,9 @@ Phases: {complete} / {total} complete
 [OK] ALL PHASES COMPLETE!
 
 Execute Completion Workflow:
-1. Archive valuable findings to docs/
-   - Patterns -> docs/development/architecture.md
-   - Troubleshooting -> docs/development/troubleshooting.md
-   - Bug fixes -> docs/development/known_bugs.md
+1. Run /focus:done to archive findings and cleanup
 2. Commit code changes
-3. Delete {SESSION_FILE}
-4. Notify user"""
+3. Notify user"""
         output_message("phases_complete", msg, "PostToolUse")
     else:
         incomplete = re.findall(r"- \[ \].*", content)

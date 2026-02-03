@@ -116,18 +116,20 @@ Phase 1: [description]
 
 Use these categories when adding entries to Findings/Issues/Decisions:
 
-| Category | Description | Archive Target |
-|----------|-------------|----------------|
-| architecture | Patterns, structures, component design | docs/development/architecture.md |
-| bugs | Unresolved bugs, known issues | docs/development/known_bugs.md |
-| resolved_bugs | Fixed bugs with cause and solution | docs/development/resolved_bugs.md |
-| troubleshooting | Debugging processes, diagnostic steps | docs/development/troubleshooting.md |
-| ai_norms | AI collaboration rules, workflows | .claude/CLAUDE.md |
-| conventions | Coding standards, naming rules | docs/development/ |
-| external_knowledge | External references, API docs, libraries | docs/research/ |
-| techniques | Implementation techniques, algorithms | docs/development/techniques.md |
-| decisions | Design decisions, architectural choices | docs/development/decisions.md |
-| config | Build system, configuration settings | docs/development/build_system.md |
+| Category | Description |
+|----------|-------------|
+| architecture | Patterns, structures, component design |
+| bugs | Unresolved bugs, known issues |
+| resolved_bugs | Fixed bugs with cause and solution |
+| troubleshooting | Debugging processes, diagnostic steps |
+| ai_norms | AI collaboration rules, workflows |
+| conventions | Coding standards, naming rules |
+| external_knowledge | External references, API docs, libraries |
+| techniques | Implementation techniques, algorithms |
+| decisions | Design decisions, architectural choices |
+| config | Build system, configuration settings |
+
+> Archive targets are configured in the plugin. Use `/focus:done` when session completes.
 
 ## Critical Rules
 
@@ -210,8 +212,8 @@ When ALL phases are marked `[x]`:
 Review focus_context.md and extract reusable knowledge to project docs:
 
 #### Architecture & Patterns
-- **New patterns discovered** → `docs/development/architecture.md`
-- **Troubleshooting lessons** → `docs/development/troubleshooting.md`
+- **New patterns discovered** → Record in focus_context.md, archive via `/focus:done`
+- **Troubleshooting lessons** → Record in focus_context.md, archive via `/focus:done`
 
 #### Bug Fixes (Special Handling)
 For each bug fix in Errors table, evaluate:
@@ -223,8 +225,8 @@ For each bug fix in Errors table, evaluate:
 | **Non-obvious fix?** | Would another developer struggle with this? |
 
 If ANY criteria is YES:
-1. Check if `docs/development/known_bugs.md` exists
-2. If not, create it with the template below
+1. Record in focus_context.md Issues table
+2. Use `/focus:done` to archive when session completes
 3. Add the bug entry with: Symptom, Root Cause, Fix, Prevention
 
 **known_bugs.md Template:**

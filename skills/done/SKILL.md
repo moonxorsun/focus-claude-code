@@ -67,20 +67,13 @@ For each archive batch:
 
 ## Category Reference
 
-When items have Category field, they map to archive targets:
+The script output shows archive targets directly:
+```
+[Batch 1] architecture (2 items)
+  Target: docs/dev_notes.md [exists]
+```
 
-| Category | Default Target | Description |
-|----------|----------------|-------------|
-| architecture | docs/development/architecture.md | Patterns, structures |
-| bugs | docs/development/known_bugs.md | Unresolved bugs, known issues |
-| resolved_bugs | docs/development/resolved_bugs.md | Fixed bugs with cause and solution |
-| troubleshooting | docs/development/troubleshooting.md | Debugging processes |
-| ai_norms | .claude/CLAUDE.md | AI collaboration rules |
-| conventions | docs/development/ | Coding standards |
-| external_knowledge | docs/research/ | External references, libraries |
-| techniques | docs/development/techniques.md | Implementation techniques |
-| decisions | docs/development/decisions.md | Design decisions |
-| config | docs/development/build_system.md | Build system settings |
+Use the `Target:` path shown in script output. Do not read config files.
 
 ## Archive Format
 
@@ -114,12 +107,12 @@ Archive settings in `.claude/config/focus.json`:
       "auto_create_missing_files": false,
       "batch_size": 5,
       "targets": {
-        "architecture": "docs/development/architecture.md",
-        "bugs": "docs/development/known_bugs.md",
-        "resolved_bugs": "docs/development/resolved_bugs.md",
-        "troubleshooting": "docs/development/troubleshooting.md",
+        "architecture": "docs/dev_notes.md",
+        "bugs": "docs/changelog.md",
+        "resolved_bugs": "docs/changelog.md",
+        "troubleshooting": "docs/dev_notes.md",
         "ai_norms": ".claude/CLAUDE.md",
-        "conventions": "docs/development/"
+        "conventions": "docs/dev_notes.md"
       }
     }
   }
