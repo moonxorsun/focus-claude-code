@@ -513,7 +513,7 @@ Recommended for this check: {recs_str}
 
 def remind_update():
     """Remind to update focus_context.md after modification."""
-    msg = "[focus] Update context"
+    msg = "[focus] Update context | Revise Plan if scope changed"
 
     # Check phase completion status
     if os.path.exists(SESSION_FILE):
@@ -529,7 +529,29 @@ def remind_update():
     output_message("remind_update", msg, "PostToolUse")
 
 
-def check_phases_complete():
+def check_commit_in_plan(command: str):
+    """Check if a git commit was made and remind to verify it's in Plan."""
+    if not command or "git commit" not in command.lower():
+        return
+
+    # Extract commit message from command
+    commit_msg = ""
+    # Match -m "message" or -m 'message' (but not heredoc style)
+    match = re.search(r'-m\s+["\']([^"\']+)["\']', command)
+    if match and "$(cat" not in match.group(1):
+        commit_msg = match.group(1)[:60]  # Truncate to 60 chars
+    else:
+        # Match heredoc style: -m "$(cat <<'EOF' or <<EOF
+        match = re.search(r"<<'?EOF'?\s*\n(.+?)\nEOF", command, re.DOTALL)
+        if match:
+            commit_msg = match.group(1).strip().split('\n')[0][:60]
+
+    if commit_msg:
+        msg = f'[focus] Commit: "{commit_msg}" | Is this within current Plan? Revise if needed'
+    else:
+        msg = "[focus] Commit detected | Is this within current Plan? Revise if needed"
+
+    output_message("commit_check", msg, "PostToolUse")
     """Check if all phases are complete."""
     if not os.path.exists(SESSION_FILE):
         return
@@ -806,6 +828,12 @@ def main():
             # Modification Reminder (after Write/Edit)
             if args.tool in MODIFY_TOOLS:
                 remind_update()
+
+            # Commit Check (after Bash with git commit)
+            if args.tool == "Bash" and stdin_data:
+                tool_input = stdin_data.get("tool_input", {})
+                command = tool_input.get("command", "") if isinstance(tool_input, dict) else ""
+                check_commit_in_plan(command)
 
         elif args.hook == "user":
             reset_confirm_state()  # Read Before Decide: reset on new user message
