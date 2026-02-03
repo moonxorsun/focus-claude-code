@@ -48,15 +48,15 @@
             "auto_create_missing_files": false,
             "batch_size": 5,
             "targets": {
-                "architecture": "docs/dev_notes.md",
+                "architecture": "docs/design.md",
                 "bugs": "docs/changelog.md",
                 "resolved_bugs": "docs/changelog.md",
                 "troubleshooting": "docs/dev_notes.md",
                 "ai_norms": ".claude/CLAUDE.md",
-                "conventions": "docs/dev_notes.md",
+                "conventions": "docs/development.md",
                 "external_knowledge": "docs/dev_notes.md",
-                "techniques": "docs/dev_notes.md",
-                "decisions": "docs/dev_notes.md",
+                "techniques": "docs/development.md",
+                "decisions": "docs/design.md",
                 "config": "docs/development.md"
             }
         }
