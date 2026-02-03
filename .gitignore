@@ -11,6 +11,9 @@ build/
 # Claude Code temp files
 .claude/tmp/
 
+# Local config (not synced)
+*.local.json
+
 # Logs
 *.log
 
