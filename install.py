@@ -6,11 +6,26 @@ Replaces {{FOCUS_PLUGIN_ROOT}} placeholders with actual plugin path.
 Called automatically by Claude Code's SessionStart hook.
 Uses .installed marker file for idempotency.
 """
+import json
 import os
 import glob
 
 PLACEHOLDER = "{{FOCUS_PLUGIN_ROOT}}"
 MARKER_FILE = ".installed"
+
+
+def _output_json(message: str, is_error: bool = False):
+    """Output message in Claude Code hook JSON format."""
+    if is_error:
+        output = {"decision": "block", "reason": message}
+    else:
+        output = {
+            "hookSpecificOutput": {
+                "hookEventName": "SessionStart",
+                "additionalContext": message
+            }
+        }
+    print(json.dumps(output))
 
 
 def get_plugin_root():
@@ -38,7 +53,7 @@ def write_marker(plugin_root):
         with open(marker_path, 'w', encoding='utf-8') as f:
             f.write(plugin_root)
     except Exception as e:
-        print(f"Warning: Could not write marker file: {e}")
+        _output_json(f"Warning: Could not write marker file: {e}", is_error=False)
 
 
 def replace_in_file(file_path, plugin_root):
@@ -57,7 +72,7 @@ def replace_in_file(file_path, plugin_root):
 
         return True
     except Exception as e:
-        print(f"Error processing {file_path}: {e}")
+        _output_json(f"Error processing {file_path}: {e}", is_error=True)
         return False
 
 
@@ -81,10 +96,11 @@ def main():
     write_marker(plugin_root)
 
     if modified_count > 0:
-        print(f"Focus plugin: {modified_count} files updated")
-        print("")
-        print("[IMPORTANT] Tell the user: Focus plugin installed successfully!")
-        print("Please restart Claude Code (exit and re-enter) to use the plugin properly.")
+        msg = f"""Focus plugin: {modified_count} files updated
+
+[IMPORTANT] Tell the user: Focus plugin installed successfully!
+Please restart Claude Code (exit and re-enter) to use the plugin properly."""
+        _output_json(msg)
 
 
 if __name__ == "__main__":

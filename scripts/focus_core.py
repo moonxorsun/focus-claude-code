@@ -12,6 +12,8 @@ import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+from log_utils import _fatal_error
+
 # =============================================================================
 # Path Constants - Override via environment variables
 # Environment variable prefix: CLAUDE_FOCUS_
@@ -61,8 +63,7 @@ def load_json_file(filepath) -> dict:
         with open(path, 'r', encoding='utf-8') as f:
             return json.load(f)
     except Exception as e:
-        print(f"[FATAL] load_json_file failed: {filepath}: {e}", file=sys.stderr)
-        sys.exit(1)
+        _fatal_error(f"load_json_file failed: {filepath}: {e}")
 
 
 def atomic_write_json(filepath, data) -> bool:
@@ -91,8 +92,7 @@ def load_config(project_path: str = None) -> dict:
     # Layer 1: Default config (plugin built-in)
     default_config = load_json_file(CONFIG_FILE)
     if not default_config:
-        print(f"[FATAL] Failed to load default config: {CONFIG_FILE}", file=sys.stderr)
-        sys.exit(1)
+        _fatal_error(f"Failed to load default config: {CONFIG_FILE}")
 
     if not project_path:
         return default_config
@@ -112,14 +112,109 @@ def load_config(project_path: str = None) -> dict:
 
 
 # =============================================================================
-# Output Helper
+# Output Helper (Collect Mode)
 # =============================================================================
 
-def output_message(tag: str, message: str, logger=None):
-    """Print message to AI context and log to debug."""
+# Global message collector - messages are collected and flushed once at script end
+_pending_messages: List[str] = []
+_current_hook_event: Optional[str] = None
+
+
+def output_error(message: str, hook_event: str = None, block: bool = True, logger=None):
+    """Output error in proper JSON format per Claude Code docs.
+
+    For PreToolUse: Uses permissionDecision: "deny" + permissionDecisionReason
+    For other hooks: Uses decision: "block" + reason
+
+    Args:
+        message: Error message
+        hook_event: Hook event name (PreToolUse/PostToolUse/etc.)
+        block: If True, block the action; if False, just add context
+        logger: Optional logger instance
+    """
+    global _pending_messages, _current_hook_event
+
+    if logger:
+        logger.error("output_error", message)
+
+    event = hook_event or _current_hook_event or "PostToolUse"
+
+    if event == "PreToolUse":
+        # PreToolUse uses hookSpecificOutput with permissionDecision
+        output = {
+            "hookSpecificOutput": {
+                "hookEventName": event,
+                "permissionDecision": "deny" if block else "allow",
+                "permissionDecisionReason": message
+            }
+        }
+    else:
+        # Other hooks use top-level decision/reason
+        if block:
+            output = {
+                "decision": "block",
+                "reason": message
+            }
+        else:
+            # Just add as context without blocking
+            output = {
+                "hookSpecificOutput": {
+                    "hookEventName": event,
+                    "additionalContext": f"[ERROR] {message}"
+                }
+            }
+
+    print(json.dumps(output))
+    _pending_messages.clear()  # Clear any pending messages since we're outputting error
+    _current_hook_event = None
+
+
+def output_message(tag: str, message: str, hook_event: str, logger=None):
+    """Collect message for later output. Call flush_output() at script end.
+
+    Args:
+        tag: Log tag for debugging
+        message: Message to output
+        hook_event: Hook event name (PreToolUse/PostToolUse/SessionStart/UserPromptSubmit)
+        logger: Optional logger instance
+    """
+    global _current_hook_event
+
     if logger:
         logger.debug(tag, message.replace("\n", " | ")[:200])
-    print(message)
+
+    _pending_messages.append(message)
+    _current_hook_event = hook_event
+
+
+def flush_output(hook_event: str = None, as_json: bool = True):
+    """Output all collected messages.
+
+    Args:
+        hook_event: Hook event name (for JSON mode)
+        as_json: True = JSON format (for hooks), False = plain text (for skills)
+    """
+    global _pending_messages, _current_hook_event
+
+    if not _pending_messages:
+        return
+
+    combined = "\n".join(_pending_messages)
+
+    if as_json:
+        event = hook_event or _current_hook_event or "PostToolUse"
+        output = {
+            "hookSpecificOutput": {
+                "hookEventName": event,
+                "additionalContext": combined
+            }
+        }
+        print(json.dumps(output))
+    else:
+        print(combined)
+
+    _pending_messages.clear()
+    _current_hook_event = None
 
 
 # =============================================================================

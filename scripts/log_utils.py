@@ -21,9 +21,17 @@ import json
 import os
 import sys
 import tempfile
+import time
 import traceback
 from datetime import datetime
 from typing import Optional
+
+
+def _fatal_error(message: str):
+    """Output fatal error in JSON format and exit. Used during early init."""
+    output = {"decision": "block", "reason": f"[FATAL] {message}"}
+    print(json.dumps(output))
+    sys.exit(2)
 
 
 class Logger:
@@ -46,7 +54,10 @@ class Logger:
             os.makedirs(dir_path, exist_ok=True)
 
     def _atomic_write(self, filepath: str, content: str) -> None:
-        """Atomically write content to file using temp+rename."""
+        """Atomically write content to file using temp+rename with retry."""
+        max_retries = 3
+        retry_delay = 0.1
+
         try:
             self._ensure_dir(filepath)
             dir_path = os.path.dirname(filepath) or "."
@@ -54,14 +65,24 @@ class Logger:
             try:
                 with os.fdopen(fd, "w", encoding="utf-8") as f:
                     f.write(content)
-                os.replace(tmp_path, filepath)
+
+                last_error = None
+                for attempt in range(max_retries):
+                    try:
+                        os.replace(tmp_path, filepath)
+                        return
+                    except PermissionError as e:
+                        last_error = e
+                        if attempt < max_retries - 1:
+                            time.sleep(retry_delay)
+
+                raise last_error
             except:
                 if os.path.exists(tmp_path):
                     os.remove(tmp_path)
                 raise
         except Exception as e:
-            print(f"[FATAL] _atomic_write failed: {filepath}: {e}", file=sys.stderr)
-            sys.exit(1)
+            _fatal_error(f"_atomic_write failed: {filepath}: {e}")
 
     def _format_msg(self, func_name: str, msg: str) -> str:
         """Format log message with timestamp and caller location."""
@@ -86,8 +107,7 @@ class Logger:
                     existing = f.read()
             self._atomic_write(filepath, existing + content)
         except Exception as e:
-            print(f"[FATAL] _append failed: {filepath}: {e}", file=sys.stderr)
-            sys.exit(1)
+            _fatal_error(f"_append failed: {filepath}: {e}")
 
     def _append_with_rotate(self, filepath: str, content: str) -> None:
         """Atomically append content and rotate if exceeds limit."""
@@ -110,8 +130,7 @@ class Logger:
             # Atomic write
             self._atomic_write(filepath, "".join(lines))
         except Exception as e:
-            print(f"[FATAL] _append_with_rotate failed: {filepath}: {e}", file=sys.stderr)
-            sys.exit(1)
+            _fatal_error(f"_append_with_rotate failed: {filepath}: {e}")
 
     def _overwrite(self, filepath: str, content: str) -> None:
         """Atomically overwrite file with content."""
@@ -121,8 +140,7 @@ class Logger:
             header = f"===== {ts} =====\n"
             self._atomic_write(filepath, header + content)
         except Exception as e:
-            print(f"[FATAL] _overwrite failed: {filepath}: {e}", file=sys.stderr)
-            sys.exit(1)
+            _fatal_error(f"_overwrite failed: {filepath}: {e}")
 
     def error(self, func_name: str, msg: str) -> None:
         """Log error message with traceback. Always logged."""

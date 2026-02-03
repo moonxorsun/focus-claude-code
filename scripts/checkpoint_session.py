@@ -36,7 +36,7 @@ if sys.platform == 'win32':
 
 from log_utils import Logger
 from focus_core import (
-    load_config, output_message as _output_message,
+    load_config, output_message as _output_message, flush_output,
     init_focus_env, load_operations, get_project_dir,
     get_all_session_ids_from_operations,
     get_pending_issues_count, get_pending_issues_path, append_pending_issue,
@@ -56,9 +56,9 @@ logger: Logger = None
 CHECKPOINT_CONFIG = {}
 
 
-def output_message(tag: str, message: str):
+def output_message(tag: str, message: str, hook_event: str):
     """Print message to AI context and log to debug."""
-    _output_message(tag, message, logger)
+    _output_message(tag, message, hook_event, logger)
 
 
 def get_current_session_id(operations: List[Dict]) -> Optional[str]:
@@ -310,19 +310,19 @@ def main():
 
     # Verify focus session is active
     if not os.path.exists(focus_context_file):
-        output_message("error", "No active focus session found. Run /focus:start first.")
+        output_message("error", "No active focus session found. Run /focus:start first.", "PostToolUse")
         sys.exit(1)
 
     # Load operations
     operations = load_operations(operations_file, logger)
     if not operations:
-        output_message("info", "No operations recorded yet.")
+        output_message("info", "No operations recorded yet.", "PostToolUse")
         sys.exit(0)
 
     # Get sessions to process
     sessions = get_sessions_to_process(operations, project_path)
     if not sessions:
-        output_message("info", "No old sessions to process (only current session exists).")
+        output_message("info", "No old sessions to process (only current session exists).", "PostToolUse")
         sys.exit(0)
 
     # Determine how many sessions to process
@@ -333,9 +333,9 @@ def main():
 
     # Header
     mode_label = "[DRY RUN] " if dry_run else ""
-    output_message("checkpoint_header", "\n" + "=" * 60)
-    output_message("checkpoint_header", f"{mode_label}CHECKPOINT: Processing {len(sessions_to_process)} session(s)")
-    output_message("checkpoint_header", "=" * 60)
+    output_message("checkpoint_header", "\n" + "=" * 60, "PostToolUse")
+    output_message("checkpoint_header", f"{mode_label}CHECKPOINT: Processing {len(sessions_to_process)} session(s)", "PostToolUse")
+    output_message("checkpoint_header", "=" * 60, "PostToolUse")
 
     # Process sessions
     processed_sids = []
@@ -343,7 +343,7 @@ def main():
     omission_results = []
 
     for sid, transcript_path in sessions_to_process:
-        output_message("session_start", f"\n--- Processing Session: {sid[:8]}... ---")
+        output_message("session_start", f"\n--- Processing Session: {sid[:8]}... ---", "PostToolUse")
 
         result = process_single_session(
             sid, transcript_path, operations, project_path,
@@ -356,27 +356,27 @@ def main():
         if result["omission_result"] and result["omission_result"] != "NONE":
             omission_results.append((sid, result["omission_result"]))
 
-        output_message("session_result", f"Errors detected: {result['errors_count']}")
-        output_message("session_result", f"Text analyzed: {result['session_text_length']} chars")
+        output_message("session_result", f"Errors detected: {result['errors_count']}", "PostToolUse")
+        output_message("session_result", f"Text analyzed: {result['session_text_length']} chars", "PostToolUse")
 
     # Remove processed session records
     remove_result = remove_processed_sessions(operations_file, processed_sids, dry_run)
 
     # Summary
-    output_message("summary", "\n" + "=" * 60)
-    output_message("summary", "CHECKPOINT SUMMARY")
-    output_message("summary", "=" * 60)
-    output_message("summary", f"Sessions processed: {len(processed_sids)}")
-    output_message("summary", f"Total errors recorded: {total_errors}")
-    output_message("summary", f"Operations removed: {remove_result['removed']}")
-    output_message("summary", f"Operations remaining: {remove_result['remaining']}")
+    output_message("summary", "\n" + "=" * 60, "PostToolUse")
+    output_message("summary", "CHECKPOINT SUMMARY", "PostToolUse")
+    output_message("summary", "=" * 60, "PostToolUse")
+    output_message("summary", f"Sessions processed: {len(processed_sids)}", "PostToolUse")
+    output_message("summary", f"Total errors recorded: {total_errors}", "PostToolUse")
+    output_message("summary", f"Operations removed: {remove_result['removed']}", "PostToolUse")
+    output_message("summary", f"Operations remaining: {remove_result['remaining']}", "PostToolUse")
 
     # Omission detection results
     if omission_results:
-        output_message("omissions", "\n## Omission Detection Results")
+        output_message("omissions", "\n## Omission Detection Results", "PostToolUse")
         for sid, omission in omission_results:
-            output_message("omissions", f"\n### Session {sid[:8]}...")
-            output_message("omissions", omission)
+            output_message("omissions", f"\n### Session {sid[:8]}...", "PostToolUse")
+            output_message("omissions", omission, "PostToolUse")
 
         # Instruction for AI
         output_message("instructions", """
@@ -385,23 +385,24 @@ def main():
 2. Add [Decision] items to the Decisions table in focus_context.md
 3. Add [Finding] items to the Findings table in focus_context.md
 4. If result is NONE or ERROR, no action needed
-""")
+""", "PostToolUse")
     else:
-        output_message("omissions", "\n## Omission Detection: No omissions found")
+        output_message("omissions", "\n## Omission Detection: No omissions found", "PostToolUse")
 
     # Clear verbose logs
     cleared_logs = clear_verbose_logs(focus_dir, dry_run)
     if cleared_logs:
-        output_message("logs_cleared", f"\n## Cleared Logs: {', '.join(cleared_logs)}")
+        output_message("logs_cleared", f"\n## Cleared Logs: {', '.join(cleared_logs)}", "PostToolUse")
 
     # Pending issues count
     pending_count = get_pending_issues_count(project_path)
     if pending_count > 0:
         pending_file = get_pending_issues_path(project_path)
-        output_message("pending_issues", f"\n## Pending Issues: {pending_count} items")
-        output_message("pending_issues", f"Review: {pending_file}")
+        output_message("pending_issues", f"\n## Pending Issues: {pending_count} items", "PostToolUse")
+        output_message("pending_issues", f"Review: {pending_file}", "PostToolUse")
 
     logger.info("complete", f"Checkpoint complete, processed {len(processed_sids)} sessions")
+    flush_output(as_json=False)
 
 
 if __name__ == '__main__':

@@ -29,7 +29,7 @@ if sys.platform == 'win32' and hasattr(sys.stdout, 'reconfigure'):
 
 from log_utils import Logger
 from focus_core import (
-    load_config, output_message as _output_message,
+    load_config, output_message as _output_message, flush_output,
     init_focus_env, load_operations, get_project_dir,
     get_all_session_ids_from_operations, get_current_session_id,
     get_session_transcripts_from_operations,
@@ -52,9 +52,9 @@ AUTO_CREATE = ARCHIVE_CONFIG.get("auto_create_missing_files", False)
 ARCHIVE_TARGETS = ARCHIVE_CONFIG.get("targets", {})
 
 
-def output_message(tag: str, message: str):
+def output_message(tag: str, message: str, hook_event: str):
     """Print message to AI context and log to debug."""
-    _output_message(tag, message, logger)
+    _output_message(tag, message, hook_event, logger)
 
 
 # =============================================================================
@@ -322,71 +322,86 @@ def group_pending_issues(issues: List[Dict]) -> List[Dict[str, Any]]:
 
 def print_checkpoint_summary(result: Dict[str, Any]):
     """Print checkpoint phase summary."""
-    print("\n--- Checkpoint Summary ---")
-    print(f"Sessions processed: {result['sessions_processed']}")
-    print(f"Errors detected: {result['total_errors']}")
-    print(f"Omissions detected: {result['total_omissions']}")
+    lines = [
+        "\n--- Checkpoint Summary ---",
+        f"Sessions processed: {result['sessions_processed']}",
+        f"Errors detected: {result['total_errors']}",
+        f"Omissions detected: {result['total_omissions']}"
+    ]
+    output_message("checkpoint_summary", "\n".join(lines), "PostToolUse")
 
 
 def print_session_summary(context: Dict[str, Any]):
     """Print session summary."""
-    print("\n--- Session Summary ---")
-    print(f"Task: {context['task'][:100]}..." if len(context.get('task', '')) > 100 else f"Task: {context.get('task', 'N/A')}")
-
+    task = context.get('task', 'N/A')
+    task_line = f"Task: {task[:100]}..." if len(task) > 100 else f"Task: {task}"
     plan = context.get("plan_status", {})
-    print(f"Completed phases: {plan.get('completed', 0)}/{plan.get('total', 0)}")
 
-    print(f"\nFindings: {len(context.get('findings', []))} items")
-    print(f"Issues: {len(context.get('issues', []))} items")
-    print(f"Decisions: {len(context.get('decisions', []))} items")
+    lines = [
+        "\n--- Session Summary ---",
+        task_line,
+        f"Completed phases: {plan.get('completed', 0)}/{plan.get('total', 0)}",
+        f"\nFindings: {len(context.get('findings', []))} items",
+        f"Issues: {len(context.get('issues', []))} items",
+        f"Decisions: {len(context.get('decisions', []))} items"
+    ]
+    output_message("session_summary", "\n".join(lines), "PostToolUse")
 
 
 def print_archive_batches(batches: List[Dict[str, Any]]):
     """Print archive suggestions."""
+    lines = ["\n--- Archive Suggestions ---"]
+
     if not batches:
-        print("\n--- Archive Suggestions ---")
-        print("No items with Category field found.")
+        lines.append("No items with Category field found.")
+        output_message("archive_batches", "\n".join(lines), "PostToolUse")
         return
 
-    print("\n--- Archive Suggestions ---")
     for batch in batches:
         status = "[EXISTS]" if batch["exists"] else "[CREATE]"
         dir_indicator = " (scan dir)" if batch["is_directory"] else ""
 
-        print(f"\n[Batch {batch['batch_num']}] {batch['category']} ({len(batch['items'])} items)")
-        print(f"  Target: {batch['target_path']}{dir_indicator} {status}")
+        lines.append(f"\n[Batch {batch['batch_num']}] {batch['category']} ({len(batch['items'])} items)")
+        lines.append(f"  Target: {batch['target_path']}{dir_indicator} {status}")
 
         for item in batch["items"]:
             item_type = item.get("type", "item")
             if item_type == "finding":
-                print(f"    - {item.get('Discovery', 'N/A')[:60]}")
+                lines.append(f"    - {item.get('Discovery', 'N/A')[:60]}")
             elif item_type == "issue":
-                print(f"    - {item.get('Issue', 'N/A')[:60]}")
+                lines.append(f"    - {item.get('Issue', 'N/A')[:60]}")
             elif item_type == "decision":
-                print(f"    - {item.get('Decision', 'N/A')[:60]}")
+                lines.append(f"    - {item.get('Decision', 'N/A')[:60]}")
+
+    output_message("archive_batches", "\n".join(lines), "PostToolUse")
 
 
 def print_pending_issues_analysis(groups: List[Dict[str, Any]]):
     """Print pending issues grouped analysis."""
+    lines = []
+
     if not groups:
-        print("\n--- Pending Issues Analysis ---")
-        print("No pending issues to process.")
+        lines.append("\n--- Pending Issues Analysis ---")
+        lines.append("No pending issues to process.")
+        output_message("pending_issues", "\n".join(lines), "PostToolUse")
         return
 
     total = sum(g["count"] for g in groups)
-    print(f"\n--- Pending Issues Analysis ({total} items) ---")
+    lines.append(f"\n--- Pending Issues Analysis ({total} items) ---")
 
     for i, group in enumerate(groups, 1):
         subgroup = f" - {group['subgroup']}" if group["subgroup"] else ""
-        print(f"\n[Group {i}] {group['tool']}{subgroup} ({group['count']} items)")
+        lines.append(f"\n[Group {i}] {group['tool']}{subgroup} ({group['count']} items)")
 
         # Show sample issues
         for issue in group["issues"][:3]:
             error_preview = issue.get("body", "")[:50].replace("\n", " ")
-            print(f"    - {error_preview}...")
+            lines.append(f"    - {error_preview}...")
 
         if group["count"] > 3:
-            print(f"    ... and {group['count'] - 3} more")
+            lines.append(f"    ... and {group['count'] - 3} more")
+
+    output_message("pending_issues", "\n".join(lines), "PostToolUse")
 
 
 def print_required_instructions(
@@ -395,54 +410,58 @@ def print_required_instructions(
     has_incomplete_phases: bool
 ):
     """Print [REQUIRED] instructions for AI."""
-    print("\n" + "=" * 50)
-    print("[REQUIRED] Follow these steps exactly:")
-    print("=" * 50)
+    lines = [
+        "\n" + "=" * 50,
+        "[REQUIRED] Follow these steps exactly:",
+        "=" * 50
+    ]
 
     step = 1
 
     # Incomplete phases warning
     if has_incomplete_phases:
-        print(f"\n{step}. VERIFY: Some phases are incomplete. Call AskUserQuestion:")
-        print('   - Question: "Some phases are not marked complete. Proceed with session closure?"')
-        print('   - Options: ["Proceed anyway", "Cancel and continue working"]')
+        lines.append(f"\n{step}. VERIFY: Some phases are incomplete. Call AskUserQuestion:")
+        lines.append('   - Question: "Some phases are not marked complete. Proceed with session closure?"')
+        lines.append('   - Options: ["Proceed anyway", "Cancel and continue working"]')
         step += 1
 
     # Archive batches
     if batches:
-        print(f"\n{step}. ARCHIVE: For each batch above, call AskUserQuestion:")
-        print('   - Header: "Archive"')
-        print('   - Question: "Archive these items to [target]?"')
-        print('   - Options: ["Accept", "Edit destinations", "Skip all"]')
-        print("   After confirmation, write items to target files.")
+        lines.append(f"\n{step}. ARCHIVE: For each batch above, call AskUserQuestion:")
+        lines.append('   - Header: "Archive"')
+        lines.append('   - Question: "Archive these items to [target]?"')
+        lines.append('   - Options: ["Accept", "Edit destinations", "Skip all"]')
+        lines.append("   After confirmation, write items to target files.")
         step += 1
 
     # Pending issues
     if pending_groups:
-        print(f"\n{step}. PENDING ISSUES: Analyze groups and call AskUserQuestion:")
-        print('   - Header: "Pending Issues"')
-        print('   - Question: "How to handle these pending issues?"')
-        print('   - Options: ["Archive patterns to troubleshooting", "Discard all", "Review individually"]')
+        lines.append(f"\n{step}. PENDING ISSUES: Analyze groups and call AskUserQuestion:")
+        lines.append('   - Header: "Pending Issues"')
+        lines.append('   - Question: "How to handle these pending issues?"')
+        lines.append('   - Options: ["Archive patterns to troubleshooting", "Discard all", "Review individually"]')
         step += 1
 
     # Commit
-    print(f"\n{step}. COMMIT: Check for uncommitted changes and commit if needed.")
+    lines.append(f"\n{step}. COMMIT: Check for uncommitted changes and commit if needed.")
     step += 1
 
     # Cleanup
-    print(f"\n{step}. CLEANUP: Call AskUserQuestion:")
-    print('   - Header: "Cleanup"')
-    print('   - Question: "Delete focus session files?"')
-    print('   - Options: ["Yes, cleanup all", "No, keep files"]')
-    print("   If confirmed, delete:")
-    print(f"     - {FOCUS_DIR}/focus_context.md")
-    print(f"     - {FOCUS_DIR}/operations.jsonl")
-    print(f"     - {FOCUS_DIR}/action_count.json")
-    print(f"     - {FOCUS_DIR}/pending_issues.md")
+    lines.append(f"\n{step}. CLEANUP: Call AskUserQuestion:")
+    lines.append('   - Header: "Cleanup"')
+    lines.append('   - Question: "Delete focus session files?"')
+    lines.append('   - Options: ["Yes, cleanup all", "No, keep files"]')
+    lines.append("   If confirmed, delete:")
+    lines.append(f"     - {FOCUS_DIR}/focus_context.md")
+    lines.append(f"     - {FOCUS_DIR}/operations.jsonl")
+    lines.append(f"     - {FOCUS_DIR}/action_count.json")
+    lines.append(f"     - {FOCUS_DIR}/pending_issues.md")
     step += 1
 
     # Report
-    print(f"\n{step}. REPORT: Summarize to user what was accomplished.")
+    lines.append(f"\n{step}. REPORT: Summarize to user what was accomplished.")
+
+    output_message("required_instructions", "\n".join(lines), "PostToolUse")
 
 
 # =============================================================================
@@ -475,9 +494,10 @@ def main():
     # Share logger with extract_session_info
     extract_session_info.logger = logger
 
-    print("=== FOCUS SESSION COMPLETION ===")
+    header = "=== FOCUS SESSION COMPLETION ==="
     if dry_run:
-        print("[DRY-RUN MODE]")
+        header += "\n[DRY-RUN MODE]"
+    output_message("focus_done_header", header, "PostToolUse")
 
     # 1. Checkpoint phase
     checkpoint_result = run_checkpoint_silent(project_path, dry_run)
@@ -507,6 +527,7 @@ def main():
 
     # 6. Print [REQUIRED] instructions
     print_required_instructions(batches, pending_groups, has_incomplete)
+    flush_output(as_json=False)
 
 
 if __name__ == "__main__":

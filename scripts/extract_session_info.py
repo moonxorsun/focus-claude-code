@@ -25,7 +25,7 @@ if sys.platform == 'win32' and hasattr(sys.stdout, 'reconfigure'):
 
 from log_utils import Logger
 from focus_core import (
-    load_config, load_json_file, output_message as _output_message,
+    load_config, load_json_file, output_message as _output_message, flush_output,
     find_transcript_path, get_project_dir, load_operations,
     get_session_transcripts_from_operations,
     append_pending_issue, get_pending_issues_count, get_pending_issues_path,
@@ -45,9 +45,9 @@ REPEATED_EDIT_THRESHOLD = DONE_CONFIG.get("repeated_edit_threshold", 3)
 # =============================================================================
 
 
-def output_message(tag: str, message: str):
+def output_message(tag: str, message: str, hook_event: str):
     """Print message to AI context and log to debug."""
-    _output_message(tag, message, logger)
+    _output_message(tag, message, hook_event, logger)
 
 
 def parse_markdown_table(content: str, header_pattern: str) -> List[Dict[str, str]]:
@@ -409,11 +409,11 @@ def print_summary(summary: Dict[str, Any]) -> None:
 
     parts.append("\n" + "=" * 60)
 
-    output_message("session_summary", "\n".join(parts))
+    output_message("session_summary", "\n".join(parts), "PostToolUse")
 
     # Also output JSON for programmatic use
     json_output = "\n## JSON Output\n" + json.dumps(summary, indent=2, ensure_ascii=False, default=str)
-    output_message("session_json", json_output)
+    output_message("session_json", json_output, "PostToolUse")
 
 
 def main():
@@ -439,6 +439,7 @@ def main():
 
     summary = generate_summary(project_path)
     print_summary(summary)
+    flush_output(as_json=False)
 
 
 if __name__ == '__main__':

@@ -9,7 +9,8 @@ from datetime import datetime, timedelta
 
 from log_utils import Logger
 from focus_core import (
-    load_config, load_json_file, atomic_write_json, output_message as _output_message,
+    load_config, load_json_file, atomic_write_json,
+    output_message as _output_message, output_error, flush_output,
     FOCUS_DIR, FOCUS_CONTEXT_FILE, OPERATIONS_FILE, COUNTER_FILE,
     FAILURE_COUNT_FILE, CONFIRM_STATE_FILE
 )
@@ -35,9 +36,9 @@ ALL_CATEGORIES = ""
 # =============================================================================
 
 
-def output_message(tag: str, message: str):
+def output_message(tag: str, message: str, hook_event: str):
     """Print message to AI context and log to debug."""
-    _output_message(tag, message, logger)
+    _output_message(tag, message, hook_event, logger)
 
 
 def load_counter():
@@ -232,7 +233,7 @@ def handle_confirm_before_modify(stdin_data):
 
     if not use_haiku:
         # Reminder mode: just print reminder, let AI decide
-        output_message("confirm_before_modify", f"[Confirm Before Modify] About to modify: {current_file}\nEnsure your execution plan has been approved by the user before proceeding.")
+        output_message("confirm_before_modify", f"[Confirm Before Modify] About to modify: {current_file}\nEnsure your execution plan has been approved by the user before proceeding.", "PreToolUse")
         return
 
     # Haiku mode: call API to check confirmation
@@ -255,10 +256,12 @@ def handle_confirm_before_modify(stdin_data):
             confirmed_files.append(current_file)
             save_confirm_state({"confirmed_files": confirmed_files})
     else:
-        print(json.dumps({
-            "decision": "block",
-            "reason": f"[Read Before Decide] Please propose changes for [{current_file}] and wait for user confirmation."
-        }))
+        output_error(
+            f"[Read Before Decide] Please propose changes for [{current_file}] and wait for user confirmation.",
+            "PreToolUse",
+            block=True,
+            logger=logger
+        )
         sys.exit(1)
 
 
@@ -410,11 +413,11 @@ def recite_objectives():
         if content.strip():
             summary = extract_summary(content)
             if summary:
-                output_message("recite", summary[:2000])
+                output_message("recite", summary[:2000], "PreToolUse")
             else:
-                output_message("recite", content[:2000])
+                output_message("recite", content[:2000], "PreToolUse")
         else:
-            output_message("recite", "[focus] focus_context.md is empty, please add plan content")
+            output_message("recite", "[focus] focus_context.md is empty, please add plan content", "PreToolUse")
     except Exception as e:
         logger.error("recite_objectives", e)
 
@@ -493,7 +496,7 @@ Recommended for this check: {recs_str}
 -> Record: Findings | Issues | Decisions
 -> Evaluate Plan
 """
-        output_message("info_check", msg)
+        output_message("info_check", msg, "PostToolUse")
 
         # Reset counter (but keep last_full_reminder)
         data_to_save = {"counts": {}, "total_weighted": 0}
@@ -510,10 +513,20 @@ Recommended for this check: {recs_str}
 
 def remind_update():
     """Remind to update focus_context.md after modification."""
-    msg = """[focus] After modification:
--> Update Current Phase (working on / blocked)
--> Mark completed phases [x]"""
-    output_message("remind_update", msg)
+    msg = "[focus] Update context"
+
+    # Check phase completion status
+    if os.path.exists(SESSION_FILE):
+        with open(SESSION_FILE, "r", encoding="utf-8") as f:
+            content = f.read()
+        total = len(re.findall(r"- \[", content))
+        complete = len(re.findall(r"- \[x\]", content, re.IGNORECASE))
+        if total > 0:
+            msg += f" | Phases: {complete}/{total}"
+            if complete == total:
+                msg += " | All complete! Run /focus:done"
+
+    output_message("remind_update", msg, "PostToolUse")
 
 
 def check_phases_complete():
@@ -544,7 +557,7 @@ Execute Completion Workflow:
 2. Commit code changes
 3. Delete {SESSION_FILE}
 4. Notify user"""
-        output_message("phases_complete", msg)
+        output_message("phases_complete", msg, "PostToolUse")
     else:
         incomplete = re.findall(r"- \[ \].*", content)
         tasks_str = "\n".join(incomplete[:3])
@@ -554,7 +567,7 @@ WARNING: Task not complete!
 {tasks_str}
 
 [!] If plan has changed, please update focus_context.md before ending session"""
-        output_message("phases_incomplete", msg)
+        output_message("phases_incomplete", msg, "PostToolUse")
 
 
 def extract_key_fields(raw: str):
@@ -702,7 +715,7 @@ Last activity: {time_str} ({time_ago})
 - If this is YOUR session to recover: /focus:recover
 - If another session is using it: do nothing or wait
 """
-        output_message("session_start", msg)
+        output_message("session_start", msg, "SessionStart")
 
 
 def main():
@@ -750,56 +763,65 @@ def main():
     # Check if focus session is active
     focus_session_active = os.path.exists(SESSION_FILE)
 
-    # session-start always runs (for detection and reminders)
-    if args.hook == "session-start":
+    # Map hook type to event name for flush_output
+    hook_event_map = {"session-start": "SessionStart", "pre": "PreToolUse", "post": "PostToolUse", "user": "UserPromptSubmit"}
+    hook_event = hook_event_map.get(args.hook, None)
+
+    try:
+        # session-start always runs (for detection and reminders)
+        if args.hook == "session-start":
+            stdin_data = read_stdin_data()
+            check_session_start(stdin_data)
+            return
+
+        # Other hooks only run when focus session is active
+        if not focus_session_active:
+            logger.debug("main", "No active focus session, skipping hook")
+            return
+
+        # Read stdin for operation recording
         stdin_data = read_stdin_data()
-        check_session_start(stdin_data)
-        return
 
-    # Other hooks only run when focus session is active
-    if not focus_session_active:
-        logger.debug("main", "No active focus session, skipping hook")
-        return
+        if args.hook == "pre":
+            # Confirm Before Modify - check confirmation for Write/Edit
+            if stdin_data:
+                handle_confirm_before_modify(stdin_data)
 
-    # Read stdin for operation recording
-    stdin_data = read_stdin_data()
+            # Recite objectives (threshold-based)
+            if args.tool in SEARCH_TOOLS:
+                increment_and_check_recite(args.tool)
 
-    if args.hook == "pre":
-        # Confirm Before Modify - check confirmation for Write/Edit
-        if stdin_data:
-            handle_confirm_before_modify(stdin_data)
+        elif args.hook == "post":
+            # 3-Strike Error Protocol
+            if stdin_data:
+                tool_name = stdin_data.get("tool_name")
+                tool_input = stdin_data.get("tool_input")
+                tool_response = stdin_data.get("tool_response")
+                strike_msg = check_and_update_strikes(tool_name, tool_input, tool_response)
+                if strike_msg:
+                    output_message("strike", strike_msg, "PostToolUse")
 
-        # Recite objectives (threshold-based)
-        if args.tool in SEARCH_TOOLS:
-            increment_and_check_recite(args.tool)
+            record_operation(stdin_data, "PostToolUse")
 
-    elif args.hook == "post":
-        # 3-Strike Error Protocol
-        if stdin_data:
-            tool_name = stdin_data.get("tool_name")
-            tool_input = stdin_data.get("tool_input")
-            tool_response = stdin_data.get("tool_response")
-            strike_msg = check_and_update_strikes(tool_name, tool_input, tool_response)
-            if strike_msg:
-                output_message("strike", strike_msg)
+            # Information Persistence Reminder (after acquiring info)
+            if args.tool in SEARCH_TOOLS:
+                increment_and_check_counter(args.tool)
 
-        record_operation(stdin_data, "PostToolUse")
+            # Modification Reminder (after Write/Edit)
+            if args.tool in MODIFY_TOOLS:
+                remind_update()
 
-        # Information Persistence Reminder (after acquiring info)
-        if args.tool in SEARCH_TOOLS:
-            increment_and_check_counter(args.tool)
+        elif args.hook == "user":
+            reset_confirm_state()  # Read Before Decide: reset on new user message
+            record_operation(stdin_data, "UserPromptSubmit")
 
-        # Modification Reminder (after Write/Edit)
-        if args.tool in MODIFY_TOOLS:
-            remind_update()
+        elif args.hook == "stop":
+            record_operation(stdin_data, "Stop")
 
-    elif args.hook == "user":
-        reset_confirm_state()  # Read Before Decide: reset on new user message
-        record_operation(stdin_data, "UserPromptSubmit")
-
-    elif args.hook == "stop":
-        record_operation(stdin_data, "Stop")
-        check_phases_complete()
+    finally:
+        # Always flush collected messages as single JSON output
+        if hook_event:
+            flush_output(hook_event)
 
 
 if __name__ == "__main__":

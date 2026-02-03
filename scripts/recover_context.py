@@ -27,7 +27,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 from log_utils import Logger
 from focus_core import (
-    load_config, load_json_file, output_message as _output_message,
+    load_config, load_json_file, output_message as _output_message, flush_output,
     find_transcript_path, get_project_dir, load_operations,
     get_all_session_ids_from_operations, get_session_transcripts_from_operations,
     get_current_session_id, get_current_session_source,
@@ -54,9 +54,9 @@ KEY_TOOLS = RECOVER_CONFIG.get("key_tools", ["Edit", "Write", "Bash", "WebSearch
 TOOL_CATEGORIES = RECOVER_CONFIG.get("tool_categories", {})
 
 
-def output_message(tag: str, message: str):
+def output_message(tag: str, message: str, hook_event: str):
     """Print message to AI context and log to debug."""
-    _output_message(tag, message, logger)
+    _output_message(tag, message, hook_event, logger)
 
 
 def get_tools_to_filter() -> set:
@@ -448,7 +448,7 @@ def list_recent_sessions(project_path: str) -> None:
         logger.debug("list_recent_sessions", f"Kept current session ({current_source}): {current_session_id[:8] if current_session_id else 'unknown'}...")
 
     if not sessions:
-        output_message("list_sessions", "No recent sessions found.")
+        output_message("list_sessions", "No recent sessions found.", "PostToolUse")
         logger.info("list_recent_sessions", "No sessions found")
         return
 
@@ -519,7 +519,7 @@ def list_recent_sessions(project_path: str) -> None:
 Then run: python "{os.path.abspath(__file__)}" --recover <N>
 """)
 
-    output_message("list_sessions", "\n".join(parts))
+    output_message("list_sessions", "\n".join(parts), "PostToolUse")
 
 
 def recover_session(project_path: str, session_id: int) -> None:
@@ -528,7 +528,7 @@ def recover_session(project_path: str, session_id: int) -> None:
     sessions = get_sessions_sorted(project_path)[:MAX_SESSIONS]
 
     if session_id < 1 or session_id > len(sessions):
-        output_message("recover_error", f"Error: Invalid session ID. Choose 1-{len(sessions)}")
+        output_message("recover_error", f"Error: Invalid session ID. Choose 1-{len(sessions)}", "PostToolUse")
         logger.error("recover_session", f"Invalid session ID: {session_id}")
         return
 
@@ -553,7 +553,7 @@ Last activity: {timestamp}
 [REQUIRED] This is historical context only. No active focus session exists.
 You MUST inform the user: "To start a new focus session based on this context, run /focus:start"
 """
-    output_message("recover_session", msg)
+    output_message("recover_session", msg, "PostToolUse")
     logger.info("recover_session", f"Recovery complete, {len(msg)} chars")
 
 
@@ -695,7 +695,7 @@ def dual_source_recovery(project_path: str) -> None:
   4. Label: "Cancel", Description: "Do nothing, just wanted to view context"
 """)
 
-    output_message("dual_recovery", "\n".join(parts))
+    output_message("dual_recovery", "\n".join(parts), "PostToolUse")
 
 
 def main():
@@ -731,7 +731,7 @@ def main():
             try:
                 session_id = int(sys.argv[i + 1])
             except ValueError:
-                output_message("recover_error", "Error: --recover requires a number (1-5)")
+                output_message("recover_error", "Error: --recover requires a number (1-5)", "PostToolUse")
                 return
 
     # Auto-detect mode if not specified
@@ -749,6 +749,8 @@ def main():
         recover_session(project_path, session_id)
     elif mode == 'dual':
         dual_source_recovery(project_path)
+
+    flush_output(as_json=False)
 
 
 if __name__ == '__main__':
