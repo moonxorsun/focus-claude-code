@@ -43,6 +43,7 @@ Focus uses `focus_context.md` as persistent "working memory on disk" to prevent 
 | **Completion Check** | Verify all phases complete | Session end |
 | **Context Recovery** | Restore context from previous sessions | `/focus:recover` |
 | **Mid-Session Checkpoint** | Save progress without ending session | `/focus:checkpoint` |
+| **Constraints** | Configurable code quality checks (8 rules) | Before Edit/Write/Bash |
 
 See [features.md](docs/features.md) for detailed specifications.
 

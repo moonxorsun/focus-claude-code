@@ -14,6 +14,7 @@ from focus_core import (
     FOCUS_DIR, FOCUS_CONTEXT_FILE, OPERATIONS_FILE, COUNTER_FILE,
     FAILURE_COUNT_FILE, CONFIRM_STATE_FILE
 )
+from constraints import check_constraints, format_constraint_message
 
 # Alias for backward compatibility (SESSION_FILE -> FOCUS_CONTEXT_FILE)
 SESSION_FILE = FOCUS_CONTEXT_FILE
@@ -232,8 +233,31 @@ def handle_confirm_before_modify(stdin_data):
     use_haiku = cbm_config.get("use_haiku", True)
 
     if not use_haiku:
-        # Reminder mode: just print reminder, let AI decide
-        output_message("confirm_before_modify", f"[Confirm Before Modify] About to modify: {current_file}\nEnsure your execution plan has been approved by the user before proceeding.", "PreToolUse")
+        # Reminder mode: check if Fix Protocol should be used
+        # Get fix_protocol config from constraints
+        constraints_config = CONFIG.get("constraints", {})
+        fix_protocol_config = constraints_config.get("rules", {}).get("fix_protocol", {})
+
+        if fix_protocol_config.get("enabled", False):
+            code_extensions = fix_protocol_config.get("code_extensions",
+                [".gd", ".py", ".cpp", ".h", ".hpp", ".c", ".js", ".ts", ".tsx"])
+            _, ext = os.path.splitext(current_file)
+
+            if ext.lower() in code_extensions:
+                # Fix Protocol for code files
+                msg = f"""[Fix Protocol] About to modify: {current_file}
+Before modifying code, ensure:
+1. Issue analyzed & root cause identified
+2. Fix proposal presented to user
+3. User confirmation received"""
+            else:
+                # Generic reminder for non-code files
+                msg = f"[Confirm Before Modify] About to modify: {current_file}\nEnsure your execution plan has been approved by the user before proceeding."
+        else:
+            # Default reminder when fix_protocol is disabled
+            msg = f"[Confirm Before Modify] About to modify: {current_file}\nEnsure your execution plan has been approved by the user before proceeding."
+
+        output_message("confirm_before_modify", msg, "PreToolUse")
         return
 
     # Haiku mode: call API to check confirmation
@@ -801,6 +825,25 @@ def main():
         stdin_data = read_stdin_data()
 
         if args.hook == "pre":
+            # Constraint checks (runs regardless of focus session)
+            if stdin_data:
+                constraints_config = CONFIG.get("constraints", {})
+                tool_name = stdin_data.get("tool_name", args.tool or "")
+                tool_input = stdin_data.get("tool_input", {})
+
+                allowed, message, action = check_constraints(
+                    tool_name, tool_input, constraints_config, logger
+                )
+
+                if not allowed and message:
+                    formatted_msg = format_constraint_message(message, action)
+                    if action == "block":
+                        output_error(formatted_msg, "PreToolUse", block=True, logger=logger)
+                        sys.exit(1)
+                    else:
+                        # warn or remind - just output message, don't block
+                        output_message("constraint", formatted_msg, "PreToolUse")
+
             # Confirm Before Modify - check confirmation for Write/Edit
             if stdin_data:
                 handle_confirm_before_modify(stdin_data)

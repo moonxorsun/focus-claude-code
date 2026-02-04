@@ -203,64 +203,13 @@ When the plan needs to be completely reworked (goal change, approach failure, be
 | Maintenance | 3 places to update | 1 place |
 | Session resume | Read 3 files | Read 1 file |
 
-## Completion Workflow
+## Completion
 
-When ALL phases are marked `[x]`:
-
-### Step 1: Archive Valuable Findings
-
-Review focus_context.md and extract reusable knowledge to project docs:
-
-#### Architecture & Patterns
-- **New patterns discovered** → Record in focus_context.md, archive via `/focus:done`
-- **Troubleshooting lessons** → Record in focus_context.md, archive via `/focus:done`
-
-#### Bug Fixes (Special Handling)
-For each bug fix in Errors table, evaluate:
-
-| Criteria | Question |
-|----------|----------|
-| **Easily triggered?** | Could this happen again in normal development? |
-| **Hard to diagnose?** | Did it take 2+ attempts to find root cause? |
-| **Non-obvious fix?** | Would another developer struggle with this? |
-
-If ANY criteria is YES:
-1. Record in focus_context.md Issues table
-2. Use `/focus:done` to archive when session completes
-3. Add the bug entry with: Symptom, Root Cause, Fix, Prevention
-
-**known_bugs.md Template:**
-```markdown
-# Known Bugs & Solutions
-
-## Format
-| Symptom | Root Cause | Fix | Prevention |
-|---------|------------|-----|------------|
-
-## Bugs
-
-### [Category: e.g., UI, State, Animation]
-
-| Symptom | Root Cause | Fix | Prevention |
-|---------|------------|-----|------------|
-| [Error message or behavior] | [Why it happened] | [How to fix] | [How to avoid] |
-```
-
-### Step 2: Commit Code Changes
-```bash
-git add <changed-files>
-git commit -m "..."
-```
-
-### Step 3: Delete Session File
-```bash
-rm .claude/tmp/focus/focus_context.md
-```
-
-### Step 4: Notify User
-Confirm task complete and summarize what was accomplished.
-
-> **IMPORTANT**: Do NOT delete focus_context.md until findings are archived. The file contains valuable context that may be lost.
+When ALL phases are marked `[x]`, run `/focus:done` to:
+1. Archive findings to project docs
+2. Process pending issues
+3. Cleanup session files
+4. Commit changes
 
 ## Advanced Topics
 

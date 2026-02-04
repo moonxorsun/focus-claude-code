@@ -37,26 +37,47 @@ The script will:
 4. **Pending Issues**: Group by tool/pattern for analysis
 5. **Output [REQUIRED]**: Instructions for you to follow
 
-## Step 2: Follow [REQUIRED] Instructions
+## Step 2: Archive Findings
 
-The script output contains `[REQUIRED]` instructions. Follow them exactly.
+Follow the `[REQUIRED]` instructions from script output.
 
 ### Archive Flow
 
 For each archive batch:
 1. Call AskUserQuestion with options: Accept / Edit destinations / Skip
-2. If accepted, write items to target file
+2. If accepted, write items to target file (see Archive Format in Reference)
 3. If target is directory, scan for best matching file
 4. If file doesn't exist and `auto_create_missing_files: false`, ask user
 
+#### Bug Fixes (Special Handling)
+
+For each bug fix in Issues table, evaluate:
+
+| Criteria | Question |
+|----------|----------|
+| **Easily triggered?** | Could this happen again in normal development? |
+| **Hard to diagnose?** | Did it take 2+ attempts to find root cause? |
+| **Non-obvious fix?** | Would another developer struggle with this? |
+
+If ANY criteria is YES → Archive using bugs/troubleshooting format (see Archive Format below)
+
 ### Pending Issues Flow
 
-1. Review grouped analysis
+1. Review grouped analysis from script output
 2. Call AskUserQuestion: Archive patterns / Discard all / Review individually
-3. If archive: write to troubleshooting.md
+3. If archive: write to troubleshooting target
 4. Delete pending_issues.md after processing
 
-### Cleanup Flow
+## Step 3: Commit Changes
+
+1. Run `git status` to check for changes
+2. If changes exist, call AskUserQuestion: Commit now / Skip commit
+3. If commit:
+   - Stage relevant files (code changes + archived docs)
+   - Create commit with descriptive message
+   - Run `git status` to verify
+
+## Step 4: Cleanup Session
 
 1. Call AskUserQuestion to confirm cleanup
 2. If confirmed, delete:
@@ -64,6 +85,14 @@ For each archive batch:
    - `.claude/tmp/focus/operations.jsonl`
    - `.claude/tmp/focus/action_count.json`
    - `.claude/tmp/focus/pending_issues.md`
+
+## Step 5: Report
+
+Summarize to user what was accomplished in this session.
+
+---
+
+# Reference
 
 ## Category Reference
 

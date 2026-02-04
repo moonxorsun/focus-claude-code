@@ -4,7 +4,37 @@ All notable changes and bug fixes for the Focus plugin.
 
 ---
 
-## [Unreleased]
+## [1.2.0] - 2026-02-04
+
+### Added
+
+- **Constraints module** - 8 configurable code quality constraints with warn/block actions:
+  - `line_limit` - Block modifications exceeding 100 lines (configurable threshold)
+  - `no_tabs` - Block tab characters in code files
+  - `no_backslash_path` - Warn on backslash paths in Bash commands
+  - `no_powershell` - Block PowerShell commands (configurable patterns)
+  - `no_bash_file_ops` - Warn on cat/grep/find when dedicated tools exist
+  - `no_hardcoded_path` - Warn on hardcoded scene paths (configurable rules)
+  - `snake_case_naming` - Block non-snake_case filenames (allows UPPERCASE)
+  - `fix_protocol` - Remind Fix Protocol before modifying code files
+- **Fix Protocol integration** - Code files show detailed reminder, non-code files show simple reminder
+- **Configurable PowerShell patterns** - `patterns` array and `check_dot_backslash` option
+
+### Changed
+
+- **Restructured to multi-plugin marketplace format** - Moved plugin to `plugins/focus/` subdirectory
+- **Documentation links updated** - All docs now in `plugins/focus/docs/` or root `docs/`
+- **README installation commands** - Fixed marketplace name from `moonxorsun-focus-claude-code` to `focus-claude-code`
+- **done/SKILL.md** - Restructured workflow to 5 clear steps (Archive → Commit → Cleanup → Report)
+- **start/SKILL.md** - Simplified Completion section (now references `/focus:done`)
+
+### Fixed
+
+- **Cross-platform compatibility** - Improved encoding and path handling
+
+---
+
+## [1.1.1] - 2026-02-03
 
 ### Fixed
 
@@ -12,6 +42,8 @@ All notable changes and bug fixes for the Focus plugin.
 - **Multiple JSON outputs cause hook validation failure** - Added `flush_output()` message collection mode
 - **Windows file locking errors** - Added retry mechanism in `_atomic_write` (3 retries, 100ms delay)
 - **hook_event parameter required** - Made explicit in `output_message()` to prevent context confusion
+- **recover_context.py stdout encoding** - Use platform-aware encoding configuration
+- **recover_context.py newline handling** - Strip `\r\n` properly on Windows
 
 ---
 

@@ -1,4 +1,66 @@
 {
+    "constraints": {
+        "enabled": false,
+        "rules": {
+            "line_limit": {
+                "enabled": false,
+                "action": "block",
+                "threshold": 100
+            },
+            "no_tabs": {
+                "enabled": false,
+                "action": "block",
+                "extensions": [".gd", ".py", ".cpp", ".h", ".hpp", ".tscn", ".tres"]
+            },
+            "no_backslash_path": {
+                "enabled": false,
+                "action": "warn"
+            },
+            "no_powershell": {
+                "enabled": false,
+                "action": "block",
+                "patterns": [
+                    "\\bGet-ChildItem\\b",
+                    "\\bSelect-String\\b",
+                    "\\bGet-Content\\b",
+                    "\\bSet-Location\\b",
+                    "\\bNew-Item\\b",
+                    "\\bRemove-Item\\b",
+                    "\\bWrite-Host\\b",
+                    "\\bInvoke-WebRequest\\b",
+                    "\\bInvoke-Expression\\b"
+                ],
+                "check_dot_backslash": true
+            },
+            "no_bash_file_ops": {
+                "enabled": false,
+                "action": "warn"
+            },
+            "no_hardcoded_path": {
+                "enabled": false,
+                "rules": [
+                    {
+                        "extensions": [".gd"],
+                        "regex": "(?<!pre)load\\s*\\(\\s*[\"']res://.*\\.tscn[\"']",
+                        "action": "warn",
+                        "message": "Consider using preload constant instead of hardcoded scene path"
+                    }
+                ]
+            },
+            "snake_case_naming": {
+                "enabled": false,
+                "action": "block",
+                "extensions": [".gd", ".tscn", ".tres", ".py", ".cpp", ".h", ".hpp"],
+                "exclude_files": ["CLAUDE.md", "README.md", "CHANGELOG.md", "LICENSE"],
+                "check_dirs": true
+            },
+            "fix_protocol": {
+                "enabled": false,
+                "action": "remind",
+                "code_extensions": [".gd", ".py", ".cpp", ".h", ".hpp", ".c", ".js", ".ts", ".tsx"]
+            }
+        }
+    },
     "logging": {
         "level": "INFO",
         "rotate_lines": 1000

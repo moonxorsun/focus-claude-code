@@ -211,6 +211,77 @@ WARNING: Task not complete!
 
 ---
 
+## Feature 9: Constraints Module
+
+**Purpose:** Configurable code quality constraints that can warn or block operations.
+
+**Trigger:** PreToolUse hook (before Edit/Write/Bash)
+
+**Configuration:**
+```json
+{
+    "constraints": {
+        "enabled": false,
+        "rules": {
+            "line_limit": { "enabled": false, "action": "block", "threshold": 100 },
+            "no_tabs": { "enabled": false, "action": "block", "extensions": [".gd", ".py", ...] },
+            "no_backslash_path": { "enabled": false, "action": "warn" },
+            "no_powershell": { "enabled": false, "action": "block", "patterns": [...] },
+            "no_bash_file_ops": { "enabled": false, "action": "warn" },
+            "no_hardcoded_path": { "enabled": false, "rules": [...] },
+            "snake_case_naming": { "enabled": false, "action": "block" },
+            "fix_protocol": { "enabled": false, "action": "remind" }
+        }
+    }
+}
+```
+
+### Constraint Rules
+
+| Rule | Tool | Action | Description |
+|------|------|--------|-------------|
+| `line_limit` | Edit, Write | block | Block modifications exceeding threshold lines (default: 100) |
+| `no_tabs` | Edit, Write | block | Block tab characters in specified file extensions |
+| `no_backslash_path` | Bash | warn | Warn on backslash path separators (excludes sed/awk) |
+| `no_powershell` | Bash | block | Block PowerShell commands (configurable patterns) |
+| `no_bash_file_ops` | Bash | warn | Warn on cat/grep/find when dedicated tools exist |
+| `no_hardcoded_path` | Edit, Write | warn | Warn on hardcoded paths (configurable regex rules) |
+| `snake_case_naming` | Write | block | Block non-snake_case filenames (allows UPPERCASE) |
+| `fix_protocol` | Edit, Write | remind | Remind Fix Protocol before modifying code files |
+
+### Action Levels
+
+| Action | Behavior | Output Prefix |
+|--------|----------|---------------|
+| `remind` | Output message only | `[REMIND]` |
+| `warn` | Output warning | `[WARN]` |
+| `block` | Block operation + exit(1) | `[BLOCK]` |
+
+### Configurable Options
+
+**line_limit:**
+- `threshold`: Maximum lines allowed (default: 100)
+
+**no_tabs:**
+- `extensions`: File extensions to check (default: [".gd", ".py", ".cpp", ".h", ".hpp", ".tscn", ".tres"])
+
+**no_powershell:**
+- `patterns`: Regex patterns for PowerShell commands
+- `check_dot_backslash`: Check for `.\script` pattern (default: true)
+
+**no_hardcoded_path:**
+- `rules`: Array of {extensions, regex, action, message}
+
+**snake_case_naming:**
+- `extensions`: File extensions to check
+- `exclude_files`: Files to exclude (e.g., "CLAUDE.md", "README.md")
+- `check_dirs`: Also check directory names (default: true)
+
+**fix_protocol:**
+- `code_extensions`: Extensions considered as code files
+
+---
+
 ## Test Checklist
 
 ### A. Infrastructure (4/4)

@@ -138,8 +138,8 @@ See [context_engineering_notes.md](references/context_engineering_notes.md) for 
 | PreToolUse:                                                |
 |   --hook pre --tool Read/Glob/Grep  -> recite + count      |
 |   --hook pre --tool WebSearch/Fetch -> recite + count      |
-|   --hook pre --tool Write/Edit      -> confirm_before_modify|
-|   --hook pre --tool Bash            -> recite              |
+|   --hook pre --tool Write/Edit      -> constraints + confirm|
+|   --hook pre --tool Bash            -> constraints + recite |
 | PostToolUse:                                               |
 |   --hook post --tool Read/Glob/Grep -> info_persistence    |
 |   --hook post --tool WebSearch/Fetch-> info_persistence    |
@@ -149,6 +149,24 @@ See [context_engineering_notes.md](references/context_engineering_notes.md) for 
 |   --hook stop                       -> check_phases_complete|
 |   --hook user                       -> reset_confirm_state |
 |   --hook session-start              -> check_session_start |
++------------------------------------------------------------+
+         |
+         v (constraints module)
++------------------------------------------------------------+
+|                    constraints.py                          |
+|              (optional code quality checks)                |
++------------------------------------------------------------+
+| Edit/Write:                                                |
+|   check_line_limit      -> block if > threshold lines      |
+|   check_no_tabs         -> block tab characters            |
+|   check_no_hardcoded_path -> warn on hardcoded paths       |
+|   check_snake_case_naming -> block non-snake_case (Write)  |
+| Bash:                                                      |
+|   check_no_backslash_path -> warn on backslash paths       |
+|   check_no_powershell     -> block PowerShell commands     |
+|   check_no_bash_file_ops  -> warn on cat/grep/find         |
+| Integration:                                               |
+|   fix_protocol          -> remind Fix Protocol (code files)|
 +------------------------------------------------------------+
 ```
 
@@ -177,6 +195,7 @@ focus/
 │   ├── config.json           # Default configuration
 │   ├── focus_core.py         # Shared utilities
 │   ├── log_utils.py          # Logging utilities
+│   ├── constraints.py        # Code quality constraint checks
 │   ├── focus_hook.py         # Unified hook handler
 │   ├── recover_context.py    # Context recovery
 │   ├── extract_session_info.py

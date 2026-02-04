@@ -190,6 +190,20 @@ flush_output("PostToolUse:Read", logger)  # Outputs single JSON with all message
 | `atomic_write_json()` | Safe JSON file writing with retry |
 | `get_focus_dir()` | Get focus directory path |
 
+### constraints.py
+
+| Function | Purpose |
+|----------|---------|
+| `check_line_limit()` | Check if content exceeds line threshold |
+| `check_no_tabs()` | Check for tab characters in specified extensions |
+| `check_no_backslash_path()` | Check for backslash path separators (excludes sed/awk) |
+| `check_no_powershell()` | Check for PowerShell commands (configurable patterns) |
+| `check_no_bash_file_ops()` | Check for cat/grep/find when dedicated tools exist |
+| `check_no_hardcoded_path()` | Check for hardcoded paths (configurable regex rules) |
+| `check_snake_case_naming()` | Check for non-snake_case filenames (allows UPPERCASE) |
+| `check_constraints()` | Run all enabled constraint checks |
+| `format_constraint_message()` | Format message with [BLOCK]/[WARN]/[REMIND] prefix |
+
 ---
 
 ## Environment Variables
