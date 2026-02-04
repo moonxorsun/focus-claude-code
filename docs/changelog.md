@@ -4,6 +4,19 @@ All notable changes and bug fixes for the Focus plugin.
 
 ---
 
+## [1.2.1] - 2026-02-04
+
+### Added
+
+- **`require_focus_session` option** - Constraints only run during focus sessions by default (configurable)
+
+### Fixed
+
+- **Constraints not running without focus session** - Constraint checks were skipped when no focus session was active, now respects `require_focus_session` config
+- **Incomplete cleanup on done** - Added missing session files to cleanup list (current_session_id.txt, confirm_state.json, etc.)
+
+---
+
 ## [1.2.0] - 2026-02-04
 
 ### Added

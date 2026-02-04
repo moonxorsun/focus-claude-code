@@ -456,6 +456,10 @@ def print_required_instructions(
     lines.append(f"     - {FOCUS_DIR}/operations.jsonl")
     lines.append(f"     - {FOCUS_DIR}/action_count.json")
     lines.append(f"     - {FOCUS_DIR}/pending_issues.md")
+    lines.append(f"     - {FOCUS_DIR}/current_session_id.txt")
+    lines.append(f"     - {FOCUS_DIR}/current_session_source.txt")
+    lines.append(f"     - {FOCUS_DIR}/focus_plugin_root.txt")
+    lines.append(f"     - {FOCUS_DIR}/confirm_state.json")
     step += 1
 
     # Report

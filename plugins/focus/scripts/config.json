@@ -1,6 +1,7 @@
 {
     "constraints": {
         "enabled": false,
+        "require_focus_session": true,
         "rules": {
             "line_limit": {
                 "enabled": false,

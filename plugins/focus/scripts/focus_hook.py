@@ -816,26 +816,30 @@ def main():
             check_session_start(stdin_data)
             return
 
-        # Constraint checks run ALWAYS (regardless of focus session)
+        # Constraint checks - respects require_focus_session config
         if args.hook == "pre":
             stdin_data = read_stdin_data()
             if stdin_data:
                 constraints_config = CONFIG.get("constraints", {})
-                tool_name = stdin_data.get("tool_name", args.tool or "")
-                tool_input = stdin_data.get("tool_input", {})
+                # Check if constraints require focus session (default: True)
+                require_focus = constraints_config.get("require_focus_session", True)
 
-                allowed, message, action = check_constraints(
-                    tool_name, tool_input, constraints_config, logger
-                )
+                if constraints_config.get("enabled", False) and (not require_focus or focus_session_active):
+                    tool_name = stdin_data.get("tool_name", args.tool or "")
+                    tool_input = stdin_data.get("tool_input", {})
 
-                if not allowed and message:
-                    formatted_msg = format_constraint_message(message, action)
-                    if action == "block":
-                        output_error(formatted_msg, "PreToolUse", block=True, logger=logger)
-                        sys.exit(1)
-                    else:
-                        # warn or remind - just output message, don't block
-                        output_message("constraint", formatted_msg, "PreToolUse")
+                    allowed, message, action = check_constraints(
+                        tool_name, tool_input, constraints_config, logger
+                    )
+
+                    if not allowed and message:
+                        formatted_msg = format_constraint_message(message, action)
+                        if action == "block":
+                            output_error(formatted_msg, "PreToolUse", block=True, logger=logger)
+                            sys.exit(1)
+                        else:
+                            # warn or remind - just output message, don't block
+                            output_message("constraint", formatted_msg, "PreToolUse")
 
         # Other hooks only run when focus session is active
         if not focus_session_active:
