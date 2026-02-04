@@ -282,6 +282,77 @@ WARNING: Task not complete!
 
 ---
 
+## Feature 10: File Reminders
+
+**Purpose:** Periodically inject file contents into context based on time or conversation turns.
+
+**Trigger:** UserPromptSubmit hook (independent of focus session by default)
+
+**Configuration:**
+```json
+{
+    "reminders": {
+        "enabled": true,
+        "require_focus_session": false,
+        "files": [
+            {
+                "file": "CLAUDE.md",
+                "mode": "both",
+                "time_minutes": 20,
+                "turns": 15
+            }
+        ]
+    }
+}
+```
+
+### Configuration Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `enabled` | Enable/disable reminders globally | `false` |
+| `require_focus_session` | Only trigger during focus sessions | `false` |
+| `files` | Array of file configurations | `[]` |
+
+### File Configuration
+
+| Option | Description |
+|--------|-------------|
+| `file` | File path relative to project root |
+| `mode` | `"time"`, `"turns"`, or `"both"` (first condition wins) |
+| `time_minutes` | Time interval in minutes |
+| `turns` | Number of conversation turns |
+
+### Trigger Modes
+
+| Mode | Behavior |
+|------|----------|
+| `time` | Trigger after N minutes since last reminder |
+| `turns` | Trigger after N conversation turns |
+| `both` | Trigger when either condition is met (first wins) |
+
+### State Storage
+
+State persisted in `.claude/tmp/focus/reminder_state.json`:
+```json
+{
+    "CLAUDE.md": {
+        "last_reminder_time": 1770215307.41,
+        "turns_since_reminder": 0
+    }
+}
+```
+
+### Output Format
+
+```
+[Reminder] CLAUDE.md:
+# CLAUDE.md
+... file content ...
+```
+
+---
+
 ## Test Checklist
 
 ### A. Infrastructure (4/4)
@@ -293,16 +364,17 @@ WARNING: Task not complete!
 | A3 | ID Index recording | focus_hook.py | operations.jsonl writes tool_use_id |
 | A4 | SessionStart detection | focus_hook.py | Auto-detect unfinished session |
 
-### B. Hook Features (6/6)
+### B. Hook Features (7/7)
 
 | # | Feature | Trigger | Status |
 |---|---------|---------|--------|
-| B1 | Session Display | PreToolUse (every N searches) | recite_objectives threshold trigger |
-| B2 | Information Persistence | PostToolUse (weighted) | Weight >= 5 triggers, 30min full version |
-| B3 | Modification Reminder | PostToolUse (Write/Edit) | Remind to update focus_context.md |
-| B4 | Confirm Before Modify | PreToolUse (Write/Edit) | Haiku API confirmation |
-| B5 | 3-Strike Error Protocol | PostToolUse (failure) | Graded warnings |
-| B6 | Completion Check | Stop | Check phases complete |
+| B1 | Session Display (Feature 1) | PreToolUse (every N searches) | recite_objectives threshold trigger |
+| B2 | Information Persistence (Feature 2) | PostToolUse (weighted) | Weight >= 5 triggers, 30min full version |
+| B3 | Modification Reminder (Feature 3) | PostToolUse (Write/Edit) | Remind to update focus_context.md |
+| B4 | Confirm Before Modify (Feature 4) | PreToolUse (Write/Edit) | Haiku API or reminder mode |
+| B5 | 3-Strike Error Protocol (Feature 5) | PostToolUse (failure) | Graded warnings |
+| B6 | Constraints (Feature 9) | PreToolUse (Edit/Write/Bash) | 8 configurable rules |
+| B7 | File Reminders (Feature 10) | UserPromptSubmit | Time/turns-based file injection |
 
 ### C. Recover Features (5/5)
 

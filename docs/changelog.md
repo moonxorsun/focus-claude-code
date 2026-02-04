@@ -4,6 +4,22 @@ All notable changes and bug fixes for the Focus plugin.
 
 ---
 
+## [1.3.0] - 2026-02-04
+
+### Added
+
+- **File Reminders** - Configurable time/turns-based file reminders (independent of focus session)
+  - `reminders.enabled` - Enable/disable reminders globally
+  - `reminders.require_focus_session` - Whether to require focus session (default: false)
+  - `reminders.files[]` - Array of file configurations:
+    - `file` - File path relative to project root
+    - `mode` - Trigger mode: `time`, `turns`, or `both`
+    - `time_minutes` - Time interval in minutes
+    - `turns` - Number of conversation turns
+  - State persisted in `.claude/tmp/focus/reminder_state.json`
+
+---
+
 ## [1.2.1] - 2026-02-04
 
 ### Added

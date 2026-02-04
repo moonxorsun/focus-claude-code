@@ -12,7 +12,7 @@ from focus_core import (
     load_config, load_json_file, atomic_write_json,
     output_message as _output_message, output_error, flush_output,
     FOCUS_DIR, FOCUS_CONTEXT_FILE, OPERATIONS_FILE, COUNTER_FILE,
-    FAILURE_COUNT_FILE, CONFIRM_STATE_FILE
+    FAILURE_COUNT_FILE, CONFIRM_STATE_FILE, check_and_trigger_reminders
 )
 from constraints import check_constraints, format_constraint_message
 
@@ -841,9 +841,23 @@ def main():
                             # warn or remind - just output message, don't block
                             output_message("constraint", formatted_msg, "PreToolUse")
 
+        # File reminders - runs independently of focus session (based on config)
+        if args.hook == "user":
+            stdin_data = read_stdin_data()
+            reminders_config = CONFIG.get("reminders", {})
+            require_focus = reminders_config.get("require_focus_session", False)
+            if not require_focus or focus_session_active:
+                reminders = check_and_trigger_reminders(CONFIG, project_path, logger)
+                for file_path, content in reminders:
+                    max_len = 3000
+                    if len(content) > max_len:
+                        content = content[:max_len] + "\n... [truncated]"
+                    output_message("reminder", f"[Reminder] {file_path}:\n{content}", "UserPromptSubmit")
+
         # Other hooks only run when focus session is active
         if not focus_session_active:
             logger.debug("main", "No active focus session, skipping hook")
+            return
             return
 
         # Read stdin for operation recording (may already be read for constraints)

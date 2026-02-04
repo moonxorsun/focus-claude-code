@@ -124,6 +124,18 @@
             }
         }
     },
+    "reminders": {
+        "enabled": false,
+        "require_focus_session": false,
+        "files": [
+            {
+                "file": "CLAUDE.md",
+                "mode": "both",
+                "time_minutes": 20,
+                "turns": 15
+            }
+        ]
+    },
     "recover": {
         "max_sessions": 5,
         "char_budget": 50000,

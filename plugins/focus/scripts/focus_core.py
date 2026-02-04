@@ -26,6 +26,9 @@ ERROR_LOG = os.environ.get("CLAUDE_FOCUS_ERROR_LOG", f"{FOCUS_DIR}/error.log")
 FAILURE_COUNT_FILE = os.environ.get("CLAUDE_FOCUS_FAILURE_FILE", f"{FOCUS_DIR}/failure_count.json")
 CONFIRM_STATE_FILE = os.environ.get("CLAUDE_FOCUS_CONFIRM_FILE", f"{FOCUS_DIR}/confirm_state.json")
 PENDING_ISSUES_FILE = os.environ.get("CLAUDE_FOCUS_PENDING_ISSUES_FILE", f"{FOCUS_DIR}/pending_issues.md")
+REMINDER_STATE_FILE = os.environ.get("CLAUDE_FOCUS_REMINDER_STATE_FILE", f"{FOCUS_DIR}/reminder_state.json")
+REMINDER_STATE_FILE = os.environ.get("CLAUDE_FOCUS_REMINDER_STATE_FILE", f"{FOCUS_DIR}/reminder_state.json")
+REMINDERS_CONFIG_FILE = ".claude/settings/reminders.json"
 
 # Config file path (from plugin root, fallback to script directory)
 PLUGIN_ROOT = os.environ.get('CLAUDE_PLUGIN_ROOT', os.path.dirname(__file__))
@@ -531,3 +534,115 @@ def clear_pending_issues(project_path: str = None, logger=None) -> bool:
             if logger:
                 logger.error("clear_pending_issues", e)
     return False
+
+
+# =============================================================================
+# File Reminders
+# =============================================================================
+
+def get_reminder_state_path(project_path: str = None) -> str:
+    """Get absolute path to reminder_state.json."""
+    if project_path is None:
+        project_path = os.getcwd()
+    state_file = REMINDER_STATE_FILE
+    if not os.path.isabs(state_file):
+        state_file = os.path.join(project_path, state_file)
+    return state_file
+
+
+def load_reminder_state(project_path: str = None, logger=None) -> Dict:
+    """Load reminder state from JSON file."""
+    state_file = get_reminder_state_path(project_path)
+    return load_json_file(state_file)
+
+
+def save_reminder_state(state: Dict, project_path: str = None, logger=None) -> bool:
+    """Save reminder state to JSON file."""
+    state_file = get_reminder_state_path(project_path)
+    return atomic_write_json(state_file, state)
+
+
+def check_and_trigger_reminders(
+    config: Dict,
+    project_path: str = None,
+    logger=None
+) -> List[Tuple[str, str]]:
+    """
+    Check all configured reminders and return files that should be reminded.
+
+    Returns:
+        List of (file_path, file_content) tuples for files needing reminder
+    """
+    import time
+
+    if project_path is None:
+        project_path = os.getcwd()
+
+    reminders_config = config.get("reminders", {})
+    if not reminders_config.get("enabled", True):
+        return []
+
+    files_config = reminders_config.get("files", [])
+    if not files_config:
+        return []
+
+    state = load_reminder_state(project_path, logger)
+    current_time = time.time()
+    results = []
+    state_changed = False
+
+    for file_cfg in files_config:
+        file_path = file_cfg.get("file", "")
+        if not file_path:
+            continue
+
+        mode = file_cfg.get("mode", "both")
+        time_minutes = file_cfg.get("time_minutes", 20)
+        turns = file_cfg.get("turns", 15)
+
+        # Get or init state for this file
+        file_state = state.get(file_path, {"last_reminder_time": 0, "turns_since_reminder": 0})
+        last_time = file_state.get("last_reminder_time", 0)
+        turns_count = file_state.get("turns_since_reminder", 0) + 1  # Increment first
+
+        should_remind = False
+
+        # Check trigger conditions based on mode
+        if mode == "time":
+            elapsed_minutes = (current_time - last_time) / 60
+            should_remind = elapsed_minutes >= time_minutes
+        elif mode == "turns":
+            should_remind = turns_count >= turns
+        elif mode == "both":
+            elapsed_minutes = (current_time - last_time) / 60
+            should_remind = elapsed_minutes >= time_minutes or turns_count >= turns
+
+        # First run (last_time == 0) always triggers
+        if last_time == 0:
+            should_remind = True
+
+        if should_remind:
+            abs_path = file_path if os.path.isabs(file_path) else os.path.join(project_path, file_path)
+            if os.path.exists(abs_path):
+                try:
+                    with open(abs_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    results.append((file_path, content))
+                except Exception as e:
+                    if logger:
+                        logger.error("check_reminders", f"Failed to read {file_path}: {e}")
+            else:
+                if logger:
+                    logger.error("check_reminders", f"Reminder file not found: {file_path}")
+            # Reset state regardless of file existence
+            state[file_path] = {"last_reminder_time": current_time, "turns_since_reminder": 0}
+            state_changed = True
+        else:
+            file_state["turns_since_reminder"] = turns_count
+            state[file_path] = file_state
+            state_changed = True
+
+    if state_changed:
+        save_reminder_state(state, project_path, logger)
+
+    return results
