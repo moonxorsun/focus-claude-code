@@ -816,16 +816,9 @@ def main():
             check_session_start(stdin_data)
             return
 
-        # Other hooks only run when focus session is active
-        if not focus_session_active:
-            logger.debug("main", "No active focus session, skipping hook")
-            return
-
-        # Read stdin for operation recording
-        stdin_data = read_stdin_data()
-
+        # Constraint checks run ALWAYS (regardless of focus session)
         if args.hook == "pre":
-            # Constraint checks (runs regardless of focus session)
+            stdin_data = read_stdin_data()
             if stdin_data:
                 constraints_config = CONFIG.get("constraints", {})
                 tool_name = stdin_data.get("tool_name", args.tool or "")
@@ -844,6 +837,16 @@ def main():
                         # warn or remind - just output message, don't block
                         output_message("constraint", formatted_msg, "PreToolUse")
 
+        # Other hooks only run when focus session is active
+        if not focus_session_active:
+            logger.debug("main", "No active focus session, skipping hook")
+            return
+
+        # Read stdin for operation recording (may already be read for constraints)
+        if args.hook != "pre":
+            stdin_data = read_stdin_data()
+
+        if args.hook == "pre":
             # Confirm Before Modify - check confirmation for Write/Edit
             if stdin_data:
                 handle_confirm_before_modify(stdin_data)
