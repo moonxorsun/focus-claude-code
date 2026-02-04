@@ -22,8 +22,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 
-# Fix Windows encoding
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+# Fix Windows encoding (set environment variable instead of wrapping stdout)
+os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
+
+# Reconfigure stdout/stderr for Windows
+if sys.platform == 'win32':
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    if hasattr(sys.stderr, 'reconfigure'):
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 from log_utils import Logger
 from focus_core import (
@@ -94,10 +101,10 @@ def reverse_readline(filepath, buf_size=8192):
 
             for line in reversed(lines[1:]):
                 if line:
-                    yield line.decode('utf-8', errors='replace')
+                    yield line.decode('utf-8', errors='replace').rstrip('\r')
 
         if buffer:
-            yield buffer.decode('utf-8', errors='replace')
+            yield buffer.decode('utf-8', errors='replace').rstrip('\r')
 
 
 def parse_timestamp(ts_str):

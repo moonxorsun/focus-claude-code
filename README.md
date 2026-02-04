@@ -105,7 +105,7 @@ claude plugin marketplace add moonxorsun/focus-claude-code
 
 **Step 2: Install the plugin**
 ```bash
-claude plugin install focus@moonxorsun-focus-claude-code
+claude plugin install focus@focus-claude-code
 ```
 
 Installation scopes:
