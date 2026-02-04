@@ -363,6 +363,33 @@ def get_sessions_sorted(project_path: str) -> List[Path]:
     return sorted(main_sessions, key=lambda p: p.stat().st_mtime, reverse=True)
 
 
+def get_filtered_sessions(project_path: str) -> List[Path]:
+    """Get session list with smart filtering applied (shared by list and recover).
+
+    Filtering logic:
+    - For startup/clear: exclude current session (it's a new session with no history)
+    - For resume/compact: keep current session (user may want to recover history from it)
+    """
+    current_session_id = get_current_session_id(logger=logger)
+    current_source = get_current_session_source()
+
+    # Smart filtering: only exclude current session for startup/clear (new sessions)
+    exclude_current = current_source in ('startup', 'clear', '')
+
+    all_sessions = get_sessions_sorted(project_path)
+
+    if exclude_current and current_session_id:
+        sessions = [s for s in all_sessions if s.stem != current_session_id][:MAX_SESSIONS]
+        if logger:
+            logger.debug("get_filtered_sessions", f"Excluded current session ({current_source}): {current_session_id[:8]}...")
+    else:
+        sessions = all_sessions[:MAX_SESSIONS]
+        if logger:
+            logger.debug("get_filtered_sessions", f"Kept current session ({current_source}): {current_session_id[:8] if current_session_id else 'unknown'}...")
+
+    return sessions
+
+
 def get_session_timestamp(session_file: Path) -> str:
     """Get formatted timestamp of session file."""
     mtime = session_file.stat().st_mtime
@@ -438,21 +465,9 @@ def list_recent_sessions(project_path: str) -> None:
     """List recent sessions with filtered summaries (smart filtering based on source)."""
     logger.info("list_recent_sessions", f"Listing sessions for {project_path}")
 
-    # Get current session info
+    # Use shared filtering function
+    sessions = get_filtered_sessions(project_path)
     current_session_id = get_current_session_id(logger=logger)
-    current_source = get_current_session_source()
-
-    # Smart filtering: only exclude current session for startup/clear (new sessions)
-    # Keep current session for resume/compact (user may want to recover history)
-    exclude_current = current_source in ('startup', 'clear', '')
-
-    all_sessions = get_sessions_sorted(project_path)
-    if exclude_current and current_session_id:
-        sessions = [s for s in all_sessions if s.stem != current_session_id][:MAX_SESSIONS]
-        logger.debug("list_recent_sessions", f"Excluded current session ({current_source}): {current_session_id[:8]}...")
-    else:
-        sessions = all_sessions[:MAX_SESSIONS]
-        logger.debug("list_recent_sessions", f"Kept current session ({current_source}): {current_session_id[:8] if current_session_id else 'unknown'}...")
 
     if not sessions:
         output_message("list_sessions", "No recent sessions found.", "PostToolUse")
@@ -532,7 +547,9 @@ Then run: python "{os.path.abspath(__file__)}" --recover <N>
 def recover_session(project_path: str, session_id: int) -> None:
     """Recover context from specific session using filtered extraction."""
     logger.info("recover_session", f"Recovering session {session_id}")
-    sessions = get_sessions_sorted(project_path)[:MAX_SESSIONS]
+
+    # Use shared filtering function (same list as list_recent_sessions)
+    sessions = get_filtered_sessions(project_path)
 
     if session_id < 1 or session_id > len(sessions):
         output_message("recover_error", f"Error: Invalid session ID. Choose 1-{len(sessions)}", "PostToolUse")

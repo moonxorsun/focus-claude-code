@@ -31,6 +31,7 @@ All notable changes and bug fixes for the Focus plugin.
 ### Fixed
 
 - **Cross-platform compatibility** - Improved encoding and path handling
+- **Session ID mismatch in recovery** - `list_recent_sessions()` and `recover_session()` now use shared `get_filtered_sessions()` function
 
 ---
 
