@@ -1,13 +1,18 @@
 {
+    "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
     "name": "focus-claude-code",
+    "version": "1.1.0",
+    "description": "Single-file planning system for complex tasks based on Manus Context Engineering principles",
     "owner": {
         "name": "Kiwi",
-        "url": "https://github.com/<username>/focus-claude-code"
+        "url": "https://github.com/moonxorsun/focus-claude-code"
     },
     "plugins": [
         {
             "name": "focus",
-            "source": "./"
+            "description": "Single-file planning workflow for complex tasks",
+            "source": "./plugins/focus",
+            "category": "productivity"
         }
     ]
 }

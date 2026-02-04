@@ -52,8 +52,8 @@ See [features.md](docs/features.md) for detailed specifications.
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              CONTEXT                                        │
 │                          (volatile, limited)                                │
-└──────────────┬────^───────────────────────────^───────┬─────────────────────┘
-               │    │                               │       │
+└──────────────┬────────────────────────────────────────────┬─────────────────┘
+               │    ^                               ^       │
                │    │ [Hook Recite]                 │       │ [Hook Recording]
                │    │                               │       ▼
                │    │                               │  ┌────────────────────┐
@@ -100,37 +100,23 @@ For detailed data flow descriptions, see [design.md](docs/design.md).
 
 **Step 1: Add GitHub repository as marketplace**
 ```bash
-/plugins marketplace add github:<YOUR_USERNAME>/focus-claude-code
+claude plugin marketplace add moonxorsun/focus-claude-code
 ```
 
 **Step 2: Install the plugin**
 ```bash
-/plugins install focus
+claude plugin install focus@moonxorsun-focus-claude-code
 ```
 
 Installation scopes:
-- `--user`: Global (across all projects)
-- `--project`: Project-shared (synced with team)
-- `--local`: Local to current project only
-
-### From Local Directory
-
-If you have cloned the repository locally:
-
-**Step 1: Add local directory as marketplace**
-```bash
-/plugins marketplace add /path/to/focus-claude-code
-```
-
-**Step 2: Install the plugin**
-```bash
-/plugins install focus
-```
+- `--scope user`: Global (across all projects)
+- `--scope project`: Project-shared (synced with team)
+- `--scope local`: Local to current project only
 
 ### Verify Installation
 
 ```bash
-/plugins list
+claude plugin list
 ```
 
 You should see `focus` in the list.
@@ -242,7 +228,8 @@ export ANTHROPIC_API_KEY="your-api-key"
 |----------|-------------|
 | [design.md](docs/design.md) | Design philosophy and architecture |
 | [features.md](docs/features.md) | Feature specifications and test cases |
-| [development.md](docs/development.md) | Implementation details, hooks, and functions |
-| [dev_notes.md](docs/dev_notes.md) | Development findings and decisions |
 | [changelog.md](docs/changelog.md) | Version history |
-| [context_engineering_notes.md](docs/references/context_engineering_notes.md) | Context Engineering study notes (Manus) |
+| [token-costs.md](docs/token-costs.md) | Token costs and tuning strategies |
+| [development.md](plugins/focus/docs/development.md) | Implementation details, hooks, and functions |
+| [dev_notes.md](plugins/focus/docs/dev_notes.md) | Development findings and decisions |
+| [context_engineering_notes.md](plugins/focus/docs/references/context_engineering_notes.md) | Context Engineering study notes (Manus) |
