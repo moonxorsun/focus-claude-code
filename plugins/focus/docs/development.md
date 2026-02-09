@@ -200,7 +200,7 @@ flush_output("PostToolUse:Read", logger)  # Outputs single JSON with all message
 | `check_no_powershell()` | Check for PowerShell commands (configurable patterns) |
 | `check_no_bash_file_ops()` | Check for cat/grep/find when dedicated tools exist |
 | `check_no_hardcoded_path()` | Check for hardcoded paths (configurable regex rules) |
-| `check_snake_case_naming()` | Check for non-snake_case filenames (allows UPPERCASE) |
+| `check_snake_case_naming()` | Check for non-snake_case filenames (project-internal dirs only) |
 | `check_constraints()` | Run all enabled constraint checks |
 | `format_constraint_message()` | Format message with [BLOCK]/[WARN]/[REMIND] prefix |
 

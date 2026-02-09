@@ -238,6 +238,12 @@ def check_snake_case_naming(
 
     # Normalize path separators
     normalized_path = file_path.replace("\\", "/")
+
+    # Only check directories within the project root
+    project_root = os.getcwd().replace("\\", "/").rstrip("/") + "/"
+    if normalized_path.startswith(project_root):
+        normalized_path = normalized_path[len(project_root):]
+
     parts = normalized_path.split("/")
     filename = parts[-1] if parts else ""
 

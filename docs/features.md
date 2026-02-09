@@ -275,7 +275,7 @@ WARNING: Task not complete!
 **snake_case_naming:**
 - `extensions`: File extensions to check
 - `exclude_files`: Files to exclude (e.g., "CLAUDE.md", "README.md")
-- `check_dirs`: Also check directory names (default: true)
+- `check_dirs`: Also check directory names (default: true, project-internal only)
 
 **fix_protocol:**
 - `code_extensions`: Extensions considered as code files

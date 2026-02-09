@@ -4,6 +4,14 @@ All notable changes and bug fixes for the Focus plugin.
 
 ---
 
+## [1.3.1] - 2026-02-09
+
+### Fixed
+
+- **snake_case_naming false positive on drive letters** - Windows drive letters (e.g. `D:`) were misidentified as PascalCase directory names. Now only checks directories within the project root, ignoring external path components like drive letters and parent directories.
+
+---
+
 ## [1.3.0] - 2026-02-04
 
 ### Added
