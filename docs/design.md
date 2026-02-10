@@ -215,6 +215,13 @@ focus/
     └── changelog.md          # Version history
 ```
 
+### Recovery Architecture
+
+| Aspect | Detail |
+|--------|--------|
+| Dual mode (context exists) | Includes all sessions from operations.jsonl, including current session |
+| List mode (no context) | Uses `get_filtered_sessions()` with smart filtering (excludes current for startup/clear, keeps for resume) |
+
 ---
 
 ## See Also

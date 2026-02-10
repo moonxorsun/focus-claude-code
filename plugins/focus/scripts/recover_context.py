@@ -645,19 +645,8 @@ def dual_source_recovery(project_path: str) -> None:
         min_session_budget = MIN_SESSION_BUDGET
         decay_factor = DECAY_FACTOR
 
-        # Skip current session (newest one) - AI already has this context
-        current_session_id = get_current_session_id(operations, logger)
-
         # Reverse to process newest first (transcripts are oldest-first)
         session_transcripts_reversed = list(reversed(session_transcripts))
-
-        # Filter out current session
-        if current_session_id:
-            session_transcripts_reversed = [
-                (sid, t) for sid, t in session_transcripts_reversed
-                if sid != current_session_id
-            ]
-            logger.debug("skip_current_session", f"Skipped current session: {current_session_id[:8]}...")
 
         # Process sessions: allocate budget dynamically based on actual usage
         remaining_budget = total_budget

@@ -4,6 +4,14 @@ All notable changes and bug fixes for the Focus plugin.
 
 ---
 
+## [1.3.2] - 2026-02-10
+
+### Fixed
+
+- **Recover skips current session in dual mode** - When `focus_context.md` exists, `dual_source_recovery()` filtered out the current session's transcript. Removed the skip logic so recovery includes all sessions including the current one. The `list` mode (no context) branch is unchanged.
+
+---
+
 ## [1.3.1] - 2026-02-09
 
 ### Fixed
