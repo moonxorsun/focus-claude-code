@@ -19,7 +19,6 @@ Modes:
 import argparse
 import json
 import os
-import re
 import sys
 from pathlib import Path
 from typing import Dict, List, Any, Tuple, Optional

@@ -9,6 +9,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -584,7 +585,6 @@ def check_and_trigger_reminders(
         - results: List of file_path strings for files needing reminder
         - errors: List of file_path strings for configured but missing files
     """
-    import time
 
     if project_path is None:
         project_path = os.getcwd()
@@ -663,7 +663,6 @@ def confirm_reminder_read(read_path: str, project_path: str = None, logger=None)
     Returns:
         The confirmed file_path string if a pending reminder was reset, empty string otherwise
     """
-    import time
 
     if project_path is None:
         project_path = os.getcwd()

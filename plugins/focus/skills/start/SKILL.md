@@ -29,7 +29,7 @@ Use a single persistent markdown file as your "working memory on disk."
 ## Quick Start
 
 1. **Check for existing session** (use Glob):
-   - If `.claude/tmp/focus/focus_context.md` exists → Ask user: "Found existing focus session. Continue it, or start fresh?"
+   - If `.claude/tmp/focus/focus_context.md` exists → Ask user: "Found existing focus session. Continue it (use `/focus:recover`), or start fresh?"
    - If not found → Proceed
 
 2. **Ensure directory exists**: `mkdir -p .claude/tmp/focus`
@@ -85,6 +85,7 @@ These categories guide what information is worth recording, and map to `/focus:d
 | techniques | Implementation techniques, algorithms |
 | decisions | Design decisions, architectural choices |
 | config | Build system, configuration settings |
+| ai_norms | AI collaboration rules, behavioral norms |
 
 ## Information Persistence
 
@@ -120,7 +121,7 @@ Record findings, issues, and decisions to focus_context.md promptly. Don't wait 
 ### R3. Never Repeat Failures
 If an action fails, try a different approach. After 3 consecutive failures on the same problem, escalate to the user.
 
-### R4. Update Plan After Changes
+### R4. Update Context After Changes
 After Write/Edit operations, check whether Plan checkboxes or other sections need updating.
 
 ### R5. Commit Within Plan Scope

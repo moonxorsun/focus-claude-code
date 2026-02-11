@@ -102,6 +102,7 @@ If ANY criteria is YES → Archive using bugs/troubleshooting format (see Archiv
    - `.claude/tmp/focus/failure_count.json`
    - `.claude/tmp/focus/skill_review_state.json`
    - `.claude/tmp/focus/reminder_state.json`
+   - `.claude/tmp/focus/logs/` (debug log directory)
 
 ## Step 5: Report
 

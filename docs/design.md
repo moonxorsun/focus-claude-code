@@ -53,7 +53,7 @@ Defined in `start/SKILL.md`, enforced by hook short reminders (`[focus] R{n}: ..
 | R4 | Update context after modifications | PostToolUse `remind_update()`, hook: `[focus] R4: Update context \| Phases: X/Y` |
 | R5 | Verify commits within Plan scope | `check_commit_in_plan()`, hook: `[focus] R5: Commit "{msg}" within Plan scope?` |
 | R6 | Read files when reminded by hooks | `check_and_trigger_reminders()` + `confirm_reminder_read()`, pending/read-confirm mechanism |
-| R7 | Fix constraint warnings immediately | `constraints.py` output prefixed with `[WARN] R7:` / `[REMIND] R7:` |
+| R7 | Fix constraint warnings immediately | `constraints.py` output prefixed with `[focus] [WARN] R7:` / `[focus] [REMIND] R7:` |
 
 ### Additional Mechanisms
 

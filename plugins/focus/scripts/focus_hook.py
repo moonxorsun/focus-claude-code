@@ -411,7 +411,7 @@ def recite_objectives():
 
 def increment_and_check_recite(tool):
     """Increment recite counter and trigger recite_objectives if threshold reached."""
-    if not START_CONFIG.get("recite_enabled", True):
+    if not START_CONFIG.get("recite_enabled", False):
         return
 
     data = load_counter()
@@ -515,7 +515,7 @@ def increment_and_check_skill_review(tool):
         if skill_path:
             output_message("skill_review", f"[focus] Please re-read {skill_path} to refresh R1-R7 rules", "PostToolUse",
                            system_message="[focus] AI should re-read start/SKILL.md to refresh R1-R7 rules")
-        state["pending"] = True
+            state["pending"] = True
     elif not state.get("pending"):
         state["count"] = review_count
 
@@ -626,7 +626,6 @@ def check_commit_in_plan(command: str):
         msg = "[focus] R5: Commit within Plan scope?"
 
     output_message("commit_check", msg, "PostToolUse")
-
 
 
 def extract_key_fields(raw: str):
@@ -878,8 +877,8 @@ def main():
             logger.debug("main", "No active focus session, skipping hook")
             return
 
-        # Read stdin for operation recording (may already be read for constraints)
-        if args.hook != "pre":
+        # Read stdin for operation recording (may already be read for constraints/reminders)
+        if args.hook not in ("pre", "user"):
             stdin_data = read_stdin_data()
 
         if args.hook == "pre":
