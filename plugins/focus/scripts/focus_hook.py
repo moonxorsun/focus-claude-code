@@ -872,6 +872,25 @@ def main():
                     output_error(f"[focus] Reminder file(s) not found: {err_list}. Check reminders.files in focus config.", "UserPromptSubmit", block=True, logger=logger)
                     sys.exit(1)
 
+        # R6 confirmation - respects require_focus_session (matches trigger logic)
+        if args.hook == "post" and args.tool == "Read":
+            if not stdin_data:
+                stdin_data = read_stdin_data()
+            if stdin_data:
+                tool_input = stdin_data.get("tool_input", {})
+                if isinstance(tool_input, dict):
+                    read_path = tool_input.get("file_path", "")
+                    if read_path:
+                        reminders_config = CONFIG.get("reminders", {})
+                        require_focus = reminders_config.get("require_focus_session", False)
+                        if not require_focus or focus_session_active:
+                            confirmed_file = confirm_reminder_read(read_path, project_path, logger)
+                            if confirmed_file:
+                                short = os.path.basename(confirmed_file)
+                                output_message("reminder_confirmed", f"[focus] R6: {confirmed_file} read confirmed", "PostToolUse",
+                                               system_message=f"[focus] R6: AI has read {short}")
+                        confirm_skill_review_read(read_path)
+
         # Other hooks only run when focus session is active
         if not focus_session_active:
             logger.debug("main", "No active focus session, skipping hook")
@@ -901,19 +920,6 @@ def main():
                     output_message("strike", strike_msg, "PostToolUse")
 
             record_operation(stdin_data, "PostToolUse")
-
-            # Confirm file reminder read (R6 reset)
-            if args.tool == "Read" and stdin_data:
-                tool_input = stdin_data.get("tool_input", {})
-                if isinstance(tool_input, dict):
-                    read_path = tool_input.get("file_path", "")
-                    if read_path:
-                        confirmed_file = confirm_reminder_read(read_path, project_path, logger)
-                        if confirmed_file:
-                            short = os.path.basename(confirmed_file)
-                            output_message("reminder_confirmed", f"[focus] R6: {confirmed_file} read confirmed", "PostToolUse",
-                                           system_message=f"[focus] R6: AI has read {short}")
-                        confirm_skill_review_read(read_path)
 
             # Information Persistence Reminder (after acquiring info)
             if args.tool in SEARCH_TOOLS:

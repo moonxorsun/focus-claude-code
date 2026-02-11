@@ -35,7 +35,7 @@ Focus uses `focus_context.md` as persistent "working memory on disk" to prevent 
 
 | Feature | Description | Trigger |
 |---------|-------------|---------|
-| **Attention Recitation** | Inject Task/Plan/Phase into context | Every N searches (default: 3) |
+| **Attention Recitation** | Inject Task/Plan/Phase into context | Every N searches (default: 3, disabled by default) |
 | **Information Persistence** | Remind to record findings | Weight sum >= 5 |
 | **Modification Reminder** | Remind to update focus_context.md | After Write/Edit/Bash |
 | **Confirm Before Modify** | Check user confirmation before edits | Before Write/Edit |
@@ -44,7 +44,8 @@ Focus uses `focus_context.md` as persistent "working memory on disk" to prevent 
 | **Context Recovery** | Restore context from previous sessions | `/focus:recover` |
 | **Mid-Session Checkpoint** | Save progress without ending session | `/focus:checkpoint` |
 | **Constraints** | Configurable code quality checks (8 rules) | Before Edit/Write/Bash |
-| **File Reminders** | Time/turns-based file content injection | UserPromptSubmit |
+| **File Reminders** | Time/turns-based file read reminders | UserPromptSubmit |
+| **SKILL Review Reminder** | Periodic reminder to re-read start/SKILL.md | Count-based and/or time-based |
 
 See [features.md](docs/features.md) for detailed specifications.
 
@@ -65,9 +66,9 @@ See [features.md](docs/features.md) for detailed specifications.
 ┌───────────────────┴───────┐                       │            │
 │     focus_context.md      │───────────────────────┤            │ [Lookup]
 │    (during session)       │                       │            ▼
-│  ┌──────┬────────┬──────┐ │                       │  ┌────────────────────┐
-│  │ Plan │Findings│Issues│ │                       │  │ Session Transcript │
-│  └──────┴────────┴──────┘ │                       └──┤ (Claude Code JSONL)│
+│  ┌──────┬────────────────┐ │                       │  ┌────────────────────┐
+│  │ Task │      Plan      │ │                       │  │ Session Transcript │
+│  └──────┴────────────────┘ │                       └──┤ (Claude Code JSONL)│
 └─────┬─────────────────────┘                          └─────────┬──────────┘
       │                 ^                  [command:checkpoint]  │
       │                 │                                        │

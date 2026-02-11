@@ -4,6 +4,14 @@ All notable changes and bug fixes for the Focus plugin.
 
 ---
 
+## [1.4.1] - 2026-02-11
+
+### Fixed
+
+- **R6 confirmation skipped without focus session** - `confirm_reminder_read` and `confirm_skill_review_read` were behind the `if not focus_session_active: return` guard, causing R6 reminders to trigger but never confirm when no focus session was active. Moved confirmation logic before the guard, respecting `require_focus_session` config to match trigger logic.
+
+---
+
 ## [1.4.0] - 2026-02-11
 
 ### Added
