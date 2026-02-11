@@ -23,9 +23,9 @@ def _output_json(message: str, is_error: bool = False, system_message: str = Non
             "hookEventName": "SessionStart",
             "additionalContext": message
         }
-        if system_message:
-            hook_output["systemMessage"] = system_message
         output = {"hookSpecificOutput": hook_output}
+        if system_message:
+            output["systemMessage"] = system_message
     print(json.dumps(output))
 
 

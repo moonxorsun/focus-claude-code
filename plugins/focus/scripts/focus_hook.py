@@ -12,7 +12,8 @@ from focus_core import (
     load_config, load_json_file, atomic_write_json,
     output_message as _output_message, output_error, flush_output,
     FOCUS_DIR, FOCUS_CONTEXT_FILE, OPERATIONS_FILE, COUNTER_FILE,
-    FAILURE_COUNT_FILE, CONFIRM_STATE_FILE, check_and_trigger_reminders
+    FAILURE_COUNT_FILE, CONFIRM_STATE_FILE, check_and_trigger_reminders,
+    confirm_reminder_read
 )
 from constraints import check_constraints, format_constraint_message
 
@@ -479,7 +480,7 @@ def increment_and_check_skill_review(tool):
         skill_path = get_skill_path()
         if skill_path:
             output_message("skill_review", f"[focus] Please re-read {skill_path} to refresh R1-R7 rules", "PostToolUse",
-                           system_message=f"[focus] AI should re-read {skill_path} to refresh R1-R7 rules")
+                           system_message="[focus] R1-R7 rules may have drifted, AI is re-reading start/SKILL.md")
         data["skill_review_count"] = 0
         data["last_skill_review"] = datetime.now().isoformat()
     else:
@@ -829,9 +830,10 @@ def main():
             require_focus = reminders_config.get("require_focus_session", False)
             if not require_focus or focus_session_active:
                 reminders = check_and_trigger_reminders(CONFIG, project_path, logger)
-                for file_path, content in reminders:
+                for file_path in reminders:
+                    short_path = os.path.basename(file_path)
                     output_message("reminder", f"[focus] R6: Please Read {file_path}", "UserPromptSubmit",
-                                   system_message=f"[focus] AI should Read {file_path}")
+                                   system_message=f"[focus] R6: AI is reading {short_path}")
 
         # Other hooks only run when focus session is active
         if not focus_session_active:
@@ -862,6 +864,14 @@ def main():
                     output_message("strike", strike_msg, "PostToolUse")
 
             record_operation(stdin_data, "PostToolUse")
+
+            # Confirm file reminder read (R6 reset)
+            if args.tool == "Read" and stdin_data:
+                tool_input = stdin_data.get("tool_input", {})
+                if isinstance(tool_input, dict):
+                    read_path = tool_input.get("file_path", "")
+                    if read_path:
+                        confirm_reminder_read(read_path, project_path, logger)
 
             # Information Persistence Reminder (after acquiring info)
             if args.tool in SEARCH_TOOLS:
