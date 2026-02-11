@@ -33,13 +33,12 @@ WEIGHTS = {}
 SEARCH_TOOLS = []
 MODIFY_TOOLS = []
 RECOMMENDATIONS = {}
-ALL_CATEGORIES = ""
 # =============================================================================
 
 
-def output_message(tag: str, message: str, hook_event: str):
+def output_message(tag: str, message: str, hook_event: str, system_message: str = None):
     """Print message to AI context and log to debug."""
-    _output_message(tag, message, hook_event, logger)
+    _output_message(tag, message, hook_event, logger, system_message=system_message)
 
 
 def load_counter():
@@ -233,30 +232,7 @@ def handle_confirm_before_modify(stdin_data):
     use_haiku = cbm_config.get("use_haiku", True)
 
     if not use_haiku:
-        # Reminder mode: check if Fix Protocol should be used
-        # Get fix_protocol config from constraints
-        constraints_config = CONFIG.get("constraints", {})
-        fix_protocol_config = constraints_config.get("rules", {}).get("fix_protocol", {})
-
-        if fix_protocol_config.get("enabled", False):
-            code_extensions = fix_protocol_config.get("code_extensions",
-                [".gd", ".py", ".cpp", ".h", ".hpp", ".c", ".js", ".ts", ".tsx"])
-            _, ext = os.path.splitext(current_file)
-
-            if ext.lower() in code_extensions:
-                # Fix Protocol for code files
-                msg = f"""[Fix Protocol] About to modify: {current_file}
-Before modifying code, ensure:
-1. Issue analyzed & root cause identified
-2. Fix proposal presented to user
-3. User confirmation received"""
-            else:
-                # Generic reminder for non-code files
-                msg = f"[Confirm Before Modify] About to modify: {current_file}\nEnsure your execution plan has been approved by the user before proceeding."
-        else:
-            # Default reminder when fix_protocol is disabled
-            msg = f"[Confirm Before Modify] About to modify: {current_file}\nEnsure your execution plan has been approved by the user before proceeding."
-
+        msg = f"[focus] R1: Confirm before modifying {current_file}"
         output_message("confirm_before_modify", msg, "PreToolUse")
         return
 
@@ -343,25 +319,11 @@ def check_and_update_strikes(tool_name, tool_input, tool_response):
 
         # Generate warning based on strike count
         if strike == 1:
-            return f"""
-[focus] [!] STRIKE 1/3: Operation failed
-{op_key}
-→ Diagnose & Fix the issue
-"""
+            return f"[focus] R3: Strike 1/{MAX_STRIKES} — {op_key} failed, diagnose and fix"
         elif strike == 2:
-            return f"""
-[focus] [!!] STRIKE 2/3: Same operation failed again!
-{op_key}
-→ MUST use Alternative Approach (NEVER repeat same action)
-"""
+            return f"[focus] R3: Strike 2/{MAX_STRIKES} — {op_key} failed again, try a different approach"
         elif strike >= MAX_STRIKES:
-            return f"""
-[focus] [!!!] STRIKE 3/3: ESCALATE TO USER
-{op_key}
-→ Broader Rethink required
-→ Ask user for guidance before proceeding
-→ Record this issue in focus_context.md Issues table
-"""
+            return f"[focus] R3: Strike {MAX_STRIKES}/{MAX_STRIKES} — {op_key} ask the user for help"
     else:
         # Success - reset count for this operation
         if op_key in counts:
@@ -448,6 +410,9 @@ def recite_objectives():
 
 def increment_and_check_recite(tool):
     """Increment recite counter and trigger recite_objectives if threshold reached."""
+    if not START_CONFIG.get("recite_enabled", True):
+        return
+
     data = load_counter()
     recite_count = data.get("recite_count", 0) + 1
     recite_threshold = START_CONFIG.get("recite_threshold", 3)
@@ -457,6 +422,68 @@ def increment_and_check_recite(tool):
         data["recite_count"] = 0
     else:
         data["recite_count"] = recite_count
+
+    save_counter(data)
+
+
+def get_skill_path():
+    """Get start/SKILL.md path from focus_plugin_root.txt."""
+    root_file = os.path.join(FOCUS_DIR, 'focus_plugin_root.txt')
+    if os.path.exists(root_file):
+        try:
+            with open(root_file, 'r', encoding='utf-8') as f:
+                plugin_root = f.read().strip()
+            return os.path.join(plugin_root, 'skills', 'start', 'SKILL.md')
+        except Exception:
+            pass
+    return None
+
+
+def increment_and_check_skill_review(tool):
+    """Increment skill review counter and trigger reminder if threshold reached.
+
+    Supports both count-based and time-based triggers (like file reminders).
+    Config: start.skill_review.{enabled, threshold, time_minutes, mode}
+    mode: "turns" (count only), "time" (time only), "both" (either triggers)
+    """
+    skill_review_config = START_CONFIG.get("skill_review", {})
+    if not skill_review_config.get("enabled", True):
+        return
+
+    data = load_counter()
+    review_count = data.get("skill_review_count", 0) + 1
+    review_threshold = skill_review_config.get("threshold", 30)
+    time_minutes = skill_review_config.get("time_minutes", 60)
+    mode = skill_review_config.get("mode", "both")
+
+    should_trigger = False
+
+    # Count-based check
+    if mode in ("turns", "both") and review_count >= review_threshold:
+        should_trigger = True
+
+    # Time-based check
+    if mode in ("time", "both"):
+        last_review = data.get("last_skill_review")
+        if not last_review:
+            should_trigger = True
+        else:
+            try:
+                last_time = datetime.fromisoformat(last_review)
+                if datetime.now() - last_time >= timedelta(minutes=time_minutes):
+                    should_trigger = True
+            except (ValueError, TypeError):
+                should_trigger = True
+
+    if should_trigger:
+        skill_path = get_skill_path()
+        if skill_path:
+            output_message("skill_review", f"[focus] Please re-read {skill_path} to refresh R1-R7 rules", "PostToolUse",
+                           system_message=f"[focus] AI should re-read {skill_path} to refresh R1-R7 rules")
+        data["skill_review_count"] = 0
+        data["last_skill_review"] = datetime.now().isoformat()
+    else:
+        data["skill_review_count"] = review_count
 
     save_counter(data)
 
@@ -482,40 +509,30 @@ def increment_and_check_counter(tool):
         if should_show_full_reminder():
             # Full version (first time or 30+ min since last)
             msg = f"""
-[focus] Information Persistence Reminder ({total})
+[focus] R2: Information Persistence Reminder ({total})
 Sources: {source_stats}
 
 === Why This Matters ===
 Context window is volatile. Information not recorded WILL be lost.
-"Lost in the middle" effect: After many operations, goals drift.
 
 === What To Record ===
-| Type | Example | Table |
-|------|---------|-------|
-| Architecture | Code structure, patterns | Findings |
-| Bug/Error | Problems encountered | Issues |
-| Conventions | Naming, style rules | Findings |
-| External Knowledge | API docs, tutorials | Findings |
-| Decisions | Approach choices, trade-offs | Decisions |
-| AI Norms | User preferences, project rules | Decisions |
+- Architecture patterns, code structure
+- Bugs encountered, root causes, resolutions
+- Conventions, naming rules
+- Design decisions, trade-offs
 
 Recommended for this check: {recs_str}
 
 === Expected Actions ===
 1. Review what you just learned
-2. Record valuable info in Findings/Issues/Decisions tables
+2. Record valuable info to focus_context.md
 3. Check: Does current plan need adjustment?
-
-=== Avoid ===
-- Assuming you'll remember later (you won't)
-- Skipping "minor" findings (they compound)
-- Continuing without updating plan when approach changed
 """
             save_full_reminder_time()
         else:
             # Simplified version (within 30 min)
             msg = f"""
-[focus] Info Check ({total}): {source_stats}
+[focus] R2: Info Check ({total}): {source_stats}
 -> Recommended: {recs_str}
 -> Record: Findings | Issues | Decisions
 -> Evaluate Plan
@@ -537,14 +554,14 @@ Recommended for this check: {recs_str}
 
 def remind_update():
     """Remind to update focus_context.md after modification."""
-    msg = "[focus] Update context | Revise Plan if scope changed"
+    msg = "[focus] R4: Update context"
 
     # Check phase completion status
     if os.path.exists(SESSION_FILE):
         with open(SESSION_FILE, "r", encoding="utf-8") as f:
             content = f.read()
-        total = len(re.findall(r"- \[", content))
-        complete = len(re.findall(r"- \[x\]", content, re.IGNORECASE))
+        total = len(re.findall(r"^\s*- \[[ xX]\]", content, re.MULTILINE))
+        complete = len(re.findall(r"^\s*- \[[xX]\]", content, re.MULTILINE))
         if total > 0:
             msg += f" | Phases: {complete}/{total}"
             if complete == total:
@@ -571,50 +588,16 @@ def check_commit_in_plan(command: str):
             commit_msg = match.group(1).strip().split('\n')[0][:60]
 
     if commit_msg:
-        msg = f'[focus] Commit: "{commit_msg}" | Is this within current Plan? Revise if needed'
+        msg = f'[focus] R5: Commit "{commit_msg}" within Plan scope?'
     else:
-        msg = "[focus] Commit detected | Is this within current Plan? Revise if needed"
+        msg = "[focus] R5: Commit within Plan scope?"
 
     output_message("commit_check", msg, "PostToolUse")
-    """Check if all phases are complete."""
-    if not os.path.exists(SESSION_FILE):
-        return
 
-    with open(SESSION_FILE, "r", encoding="utf-8") as f:
-        content = f.read()
-
-    total = len(re.findall(r"- \[", content))
-    complete = len(re.findall(r"- \[x\]", content, re.IGNORECASE))
-
-    if total == 0:
-        return
-
-    if complete == total:
-        msg = f"""=== Task Completion Check ===
-Phases: {complete} / {total} complete
-
-[OK] ALL PHASES COMPLETE!
-
-Execute Completion Workflow:
-1. Run /focus:done to archive findings and cleanup
-2. Commit code changes
-3. Notify user"""
-        output_message("phases_complete", msg, "PostToolUse")
-    else:
-        incomplete = re.findall(r"- \[ \].*", content)
-        tasks_str = "\n".join(incomplete[:3])
-        msg = f"""=== Task Completion Check ===
-Phases: {complete} / {total} complete
-WARNING: Task not complete!
-{tasks_str}
-
-[!] If plan has changed, please update focus_context.md before ending session"""
-        output_message("phases_incomplete", msg, "PostToolUse")
 
 
 def extract_key_fields(raw: str):
     """Extract key fields from malformed JSON using regex."""
-    import re
     result = {}
 
     # Extract session_id
@@ -690,7 +673,7 @@ def record_operation(stdin_data, hook_type):
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(existing + new_line)
             os.replace(tmp_path, OPERATIONS_FILE)
-        except:
+        except Exception:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
             raise
@@ -729,7 +712,6 @@ def check_session_start(stdin_data: dict = None):
         # Get last activity time
         try:
             mtime = os.path.getmtime(SESSION_FILE)
-            from datetime import datetime
             last_activity = datetime.fromtimestamp(mtime)
             now = datetime.now()
             delta = now - last_activity
@@ -761,7 +743,7 @@ Last activity: {time_str} ({time_ago})
 
 
 def main():
-    global logger, CONFIG, START_CONFIG, THRESHOLD, MAX_STRIKES, ERROR_PATTERNS, WEIGHTS, SEARCH_TOOLS, MODIFY_TOOLS, RECOMMENDATIONS, ALL_CATEGORIES
+    global logger, CONFIG, START_CONFIG, THRESHOLD, MAX_STRIKES, ERROR_PATTERNS, WEIGHTS, SEARCH_TOOLS, MODIFY_TOOLS, RECOMMENDATIONS
     global FOCUS_DIR, SESSION_FILE, COUNTER_FILE, OPERATIONS_FILE, FAILURE_COUNT_FILE, CONFIRM_STATE_FILE
 
     # Use cwd directly - Claude Code always runs from project root
@@ -777,7 +759,6 @@ def main():
     SEARCH_TOOLS = START_CONFIG.get("search_tools", [])
     MODIFY_TOOLS = START_CONFIG.get("modify_tools", [])
     RECOMMENDATIONS = START_CONFIG.get("recommendations", {})
-    ALL_CATEGORIES = START_CONFIG.get("all_categories", "")
 
     # Convert to absolute paths (only if relative)
     if not os.path.isabs(FOCUS_DIR):
@@ -849,15 +830,12 @@ def main():
             if not require_focus or focus_session_active:
                 reminders = check_and_trigger_reminders(CONFIG, project_path, logger)
                 for file_path, content in reminders:
-                    max_len = 3000
-                    if len(content) > max_len:
-                        content = content[:max_len] + "\n... [truncated]"
-                    output_message("reminder", f"[Reminder] {file_path}:\n{content}", "UserPromptSubmit")
+                    output_message("reminder", f"[focus] R6: Please Read {file_path}", "UserPromptSubmit",
+                                   system_message=f"[focus] AI should Read {file_path}")
 
         # Other hooks only run when focus session is active
         if not focus_session_active:
             logger.debug("main", "No active focus session, skipping hook")
-            return
             return
 
         # Read stdin for operation recording (may already be read for constraints)
@@ -888,6 +866,7 @@ def main():
             # Information Persistence Reminder (after acquiring info)
             if args.tool in SEARCH_TOOLS:
                 increment_and_check_counter(args.tool)
+                increment_and_check_skill_review(args.tool)
 
             # Modification Reminder (after Write/Edit)
             if args.tool in MODIFY_TOOLS:

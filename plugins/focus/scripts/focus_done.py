@@ -143,6 +143,7 @@ def extract_focus_context(project_path: str) -> Dict[str, Any]:
         "findings": context_data.get("findings", []),
         "issues": context_data.get("issues", []),
         "decisions": context_data.get("decisions", []),
+        "sections": context_data.get("sections", []),
         "plan_status": context_data.get("plan_status", {})
     }
 
@@ -238,7 +239,7 @@ def parse_pending_issues(project_path: str) -> List[Dict[str, Any]]:
             content = f.read()
 
         # Parse each issue block (### timestamp | tool | type)
-        pattern = r"### (\d{4}-\d{2}-\d{2}T[\d:]+) \| (\w+) \| (\w+)\n(.*?)(?=\n### |\Z)"
+        pattern = r"### (\d{4}-\d{2}-\d{2}T[\d:.]+) \| (\w+) \| (\w+)\r?\n(.*?)(?=\r?\n### |\Z)"
         matches = re.findall(pattern, content, re.DOTALL)
 
         for timestamp, tool, issue_type, body in matches:
@@ -343,17 +344,31 @@ def print_session_summary(context: Dict[str, Any]):
         f"Completed phases: {plan.get('completed', 0)}/{plan.get('total', 0)}",
         f"\nFindings: {len(context.get('findings', []))} items",
         f"Issues: {len(context.get('issues', []))} items",
-        f"Decisions: {len(context.get('decisions', []))} items"
+        f"Decisions: {len(context.get('decisions', []))} items",
+        f"Sections with content: {len(context.get('sections', []))} detected"
     ]
     output_message("session_summary", "\n".join(lines), "PostToolUse")
 
 
-def print_archive_batches(batches: List[Dict[str, Any]]):
-    """Print archive suggestions."""
+def print_archive_batches(batches: List[Dict[str, Any]], sections: List[Dict[str, Any]] = None):
+    """Print archive suggestions. Falls back to section summaries when no table batches."""
     lines = ["\n--- Archive Suggestions ---"]
 
+    if not batches and sections:
+        lines.append("No standard table items found. Detected sections with content:")
+        for i, sec in enumerate(sections, 1):
+            cats = sec.get("suggested_categories", [])
+            cat_str = f" -> suggested: {', '.join(cats)}" if cats else ""
+            lines.append(f"\n  [{i}] \"{sec['title']}\" ({sec['line_count']} lines){cat_str}")
+            # Preview: first 3 non-empty lines
+            preview_lines = [l for l in sec["content"].split('\n') if l.strip()][:3]
+            for pl in preview_lines:
+                lines.append(f"      {pl.strip()[:80]}")
+        output_message("archive_batches", "\n".join(lines), "PostToolUse")
+        return
+
     if not batches:
-        lines.append("No items with Category field found.")
+        lines.append("No items to archive.")
         output_message("archive_batches", "\n".join(lines), "PostToolUse")
         return
 
@@ -407,7 +422,8 @@ def print_pending_issues_analysis(groups: List[Dict[str, Any]]):
 def print_required_instructions(
     batches: List[Dict[str, Any]],
     pending_groups: List[Dict[str, Any]],
-    has_incomplete_phases: bool
+    has_incomplete_phases: bool,
+    sections: List[Dict[str, Any]] = None
 ):
     """Print [REQUIRED] instructions for AI."""
     lines = [
@@ -433,8 +449,15 @@ def print_required_instructions(
         lines.append('   - Options: ["Accept", "Edit destinations", "Skip all"]')
         lines.append("   After confirmation, write items to target files.")
         step += 1
-
-    # Pending issues
+    elif sections:
+        lines.append(f"\n{step}. SECTION-BASED ARCHIVE: The sections above contain content worth archiving.")
+        lines.append("   For each section:")
+        lines.append("   a. Read the full section content from focus_context.md")
+        lines.append("   b. Judge whether the content is worth archiving")
+        lines.append("   c. Use suggested categories (if any) to map to archive targets in config")
+        lines.append("   d. If unsure about destination, call AskUserQuestion to confirm with user")
+        lines.append("   e. Write content in a format appropriate for the target document")
+        step += 1
     if pending_groups:
         lines.append(f"\n{step}. PENDING ISSUES: Analyze groups and call AskUserQuestion:")
         lines.append('   - Header: "Pending Issues"')
@@ -493,7 +516,7 @@ def main():
     # Initialize logger
     init_focus_env(project_path)
     log_dir = os.path.join(project_path, FOCUS_DIR)
-    logger = Logger(CONFIG.get("logging", {}), log_dir)
+    logger = Logger(CONFIG, log_dir)
 
     # Share logger with extract_session_info
     extract_session_info.logger = logger
@@ -517,8 +540,9 @@ def main():
         context.get("issues", []),
         context.get("decisions", [])
     )
+    sections = context.get("sections", [])
     batches = generate_archive_batches(grouped, project_path)
-    print_archive_batches(batches)
+    print_archive_batches(batches, sections)
 
     # 4. Pending issues analysis
     pending_issues = parse_pending_issues(project_path)
@@ -530,7 +554,7 @@ def main():
     has_incomplete = plan_status.get("completed", 0) < plan_status.get("total", 0)
 
     # 6. Print [REQUIRED] instructions
-    print_required_instructions(batches, pending_groups, has_incomplete)
+    print_required_instructions(batches, pending_groups, has_incomplete, sections)
     flush_output(as_json=False)
 
 

@@ -287,11 +287,11 @@ def filter_session_from_end(transcript_path: Path, char_budget: int = DEFAULT_CH
         entry = extract_valuable_content(line, truncate=truncate)
         if entry:
             entry_len = len(entry['formatted']) + 2
+            if remaining <= 0:
+                break
             if entry_len > remaining:
                 skipped += 1
                 continue  # Skip this entry, try next
-            if remaining <= 0:
-                break
             entries.append(entry)
             remaining -= entry_len
 
@@ -713,12 +713,27 @@ def dual_source_recovery(project_path: str) -> None:
 
 def main():
     global logger, CONFIG, FOCUS_DIR, FOCUS_CONTEXT_FILE, OPERATIONS_FILE
+    global RECOVER_CONFIG, MAX_SESSIONS, DEFAULT_CHAR_BUDGET, LIST_CHAR_BUDGET
+    global MAX_ENTRY_LENGTH, DECAY_FACTOR, MIN_SESSION_BUDGET
+    global NOISE_PATTERNS, FILTER_TOOLS, FILTER_TOOL_CATEGORIES, KEY_TOOLS, TOOL_CATEGORIES
 
     # Use cwd directly - Claude Code always runs from project root
     project_path = os.getcwd()
 
     # Reload config with project path (merges project config)
     CONFIG = load_config(project_path)
+    RECOVER_CONFIG = CONFIG.get("recover", {})
+    MAX_SESSIONS = RECOVER_CONFIG.get("max_sessions", 5)
+    DEFAULT_CHAR_BUDGET = RECOVER_CONFIG.get("char_budget", 50000)
+    LIST_CHAR_BUDGET = RECOVER_CONFIG.get("list_char_budget", 5000)
+    MAX_ENTRY_LENGTH = RECOVER_CONFIG.get("max_entry_length", 400)
+    DECAY_FACTOR = RECOVER_CONFIG.get("decay_factor", 0.5)
+    MIN_SESSION_BUDGET = RECOVER_CONFIG.get("min_session_budget", 1000)
+    NOISE_PATTERNS = RECOVER_CONFIG.get("noise_patterns", [])
+    FILTER_TOOLS = RECOVER_CONFIG.get("filter_tools", [])
+    FILTER_TOOL_CATEGORIES = RECOVER_CONFIG.get("filter_tool_categories", [])
+    KEY_TOOLS = RECOVER_CONFIG.get("key_tools", ["Edit", "Write", "Bash", "WebSearch"])
+    TOOL_CATEGORIES = RECOVER_CONFIG.get("tool_categories", {})
 
     # Convert to absolute paths (only if relative)
     if not os.path.isabs(FOCUS_DIR):

@@ -27,9 +27,6 @@ FAILURE_COUNT_FILE = os.environ.get("CLAUDE_FOCUS_FAILURE_FILE", f"{FOCUS_DIR}/f
 CONFIRM_STATE_FILE = os.environ.get("CLAUDE_FOCUS_CONFIRM_FILE", f"{FOCUS_DIR}/confirm_state.json")
 PENDING_ISSUES_FILE = os.environ.get("CLAUDE_FOCUS_PENDING_ISSUES_FILE", f"{FOCUS_DIR}/pending_issues.md")
 REMINDER_STATE_FILE = os.environ.get("CLAUDE_FOCUS_REMINDER_STATE_FILE", f"{FOCUS_DIR}/reminder_state.json")
-REMINDER_STATE_FILE = os.environ.get("CLAUDE_FOCUS_REMINDER_STATE_FILE", f"{FOCUS_DIR}/reminder_state.json")
-REMINDERS_CONFIG_FILE = ".claude/settings/reminders.json"
-
 # Config file path (from plugin root, fallback to script directory)
 PLUGIN_ROOT = os.environ.get('CLAUDE_PLUGIN_ROOT', os.path.dirname(__file__))
 CONFIG_FILE = (
@@ -80,7 +77,7 @@ def atomic_write_json(filepath, data) -> bool:
             json.dump(data, f, ensure_ascii=False)
         os.replace(tmp_path, filepath)
         return True
-    except:
+    except Exception:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
         raise
@@ -120,6 +117,7 @@ def load_config(project_path: str = None) -> dict:
 
 # Global message collector - messages are collected and flushed once at script end
 _pending_messages: List[str] = []
+_pending_system_messages: List[str] = []
 _current_hook_event: Optional[str] = None
 
 
@@ -169,17 +167,19 @@ def output_error(message: str, hook_event: str = None, block: bool = True, logge
 
     print(json.dumps(output))
     _pending_messages.clear()  # Clear any pending messages since we're outputting error
+    _pending_system_messages.clear()
     _current_hook_event = None
 
 
-def output_message(tag: str, message: str, hook_event: str, logger=None):
+def output_message(tag: str, message: str, hook_event: str, logger=None, system_message: str = None):
     """Collect message for later output. Call flush_output() at script end.
 
     Args:
         tag: Log tag for debugging
-        message: Message to output
+        message: Message to output (additionalContext for AI)
         hook_event: Hook event name (PreToolUse/PostToolUse/SessionStart/UserPromptSubmit)
         logger: Optional logger instance
+        system_message: Optional message visible to user terminal (systemMessage field)
     """
     global _current_hook_event
 
@@ -187,6 +187,8 @@ def output_message(tag: str, message: str, hook_event: str, logger=None):
         logger.debug(tag, message.replace("\n", " | ")[:200])
 
     _pending_messages.append(message)
+    if system_message:
+        _pending_system_messages.append(system_message)
     _current_hook_event = hook_event
 
 
@@ -197,26 +199,31 @@ def flush_output(hook_event: str = None, as_json: bool = True):
         hook_event: Hook event name (for JSON mode)
         as_json: True = JSON format (for hooks), False = plain text (for skills)
     """
-    global _pending_messages, _current_hook_event
+    global _pending_messages, _pending_system_messages, _current_hook_event
 
-    if not _pending_messages:
+    if not _pending_messages and not _pending_system_messages:
         return
 
-    combined = "\n".join(_pending_messages)
+    combined = "\n".join(_pending_messages) if _pending_messages else ""
+    combined_system = "\n".join(_pending_system_messages) if _pending_system_messages else ""
 
     if as_json:
         event = hook_event or _current_hook_event or "PostToolUse"
-        output = {
-            "hookSpecificOutput": {
-                "hookEventName": event,
-                "additionalContext": combined
-            }
-        }
+        hook_output = {"hookEventName": event}
+        if combined:
+            hook_output["additionalContext"] = combined
+        if combined_system:
+            hook_output["systemMessage"] = combined_system
+        output = {"hookSpecificOutput": hook_output}
         print(json.dumps(output))
     else:
-        print(combined)
+        if combined:
+            print(combined)
+        if combined_system:
+            print(combined_system)
 
     _pending_messages.clear()
+    _pending_system_messages.clear()
     _current_hook_event = None
 
 
@@ -470,7 +477,7 @@ def append_pending_issue(
         f"- **Session**: {session_id}"
     ]
     if file_path:
-        lines.append(f"- **File**: {file_path}")
+        lines.append(f"- **File**: `{file_path}`")
     if command:
         lines.append(f"- **Command**: `{command}`")
     lines.append(f"- **Error**: {snippet}")

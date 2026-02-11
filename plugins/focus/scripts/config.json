@@ -72,7 +72,14 @@
             "use_haiku": false
         },
         "threshold": 5,
+        "recite_enabled": true,
         "recite_threshold": 3,
+        "skill_review": {
+            "enabled": true,
+            "threshold": 30,
+            "time_minutes": 60,
+            "mode": "both"
+        },
         "full_reminder_interval_minutes": 30,
         "max_strikes": 3,
         "error_patterns": ["error:", "failed:", "exception:", "traceback", "does not exist", "permission denied"],
@@ -93,8 +100,7 @@
             "WebSearch": ["External Knowledge", "Techniques"],
             "WebFetch": ["External Knowledge", "Techniques"],
             "UserPrompt": ["AI Norms", "Decisions"]
-        },
-        "all_categories": "architecture|bugs|resolved_bugs|troubleshooting|ai_norms|conventions|external_knowledge|techniques|decisions|config"
+        }
     },
     "checkpoint": {
         "error_detection": true,

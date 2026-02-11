@@ -9,7 +9,6 @@ Usage:
     python extract_session_info.py [project-path]
 """
 
-import io
 import json
 import os
 import re
@@ -90,12 +89,69 @@ def parse_markdown_table(content: str, header_pattern: str) -> List[Dict[str, st
     return results
 
 
+def extract_sections(content: str) -> List[Dict[str, Any]]:
+    """Split content by ## headers and return sections with content.
+
+    Returns list of dicts: {title, content, line_count}
+    Skips sections that are empty or contain only a table header with no data rows.
+    """
+    sections = []
+    parts = re.split(r'^## (.+)$', content, flags=re.MULTILINE)
+
+    # parts[0] is content before first ##, then alternating title/content
+    for i in range(1, len(parts), 2):
+        title = parts[i].strip()
+        body = parts[i + 1] if i + 1 < len(parts) else ""
+        body = body.strip()
+
+        if not body:
+            continue
+
+        # Skip pure-template sections: only a table header + separator, no data rows
+        body_lines = [l for l in body.split('\n') if l.strip()]
+        if len(body_lines) <= 2:
+            if all(re.match(r'^\s*\|', l) for l in body_lines):
+                continue
+
+        sections.append({
+            "title": title,
+            "content": body,
+            "line_count": len(body_lines)
+        })
+
+    return sections
+
+
+# Section title keyword -> recommended archive categories
+_SECTION_CLASSIFY_MAP = [
+    (r'findings?|发现', ["architecture", "conventions"]),
+    (r'issues?|问题|bugs?|测试|errors?', ["bugs", "troubleshooting"]),
+    (r'decisions?|决定|决策|技术', ["decisions", "architecture"]),
+    (r'环境|配置|config|environment|setup', ["config"]),
+    (r'规范|conventions?|norms?|rules?', ["conventions"]),
+]
+
+
+def classify_section(title: str) -> List[str]:
+    """Recommend archive categories based on section title keywords."""
+    title_lower = title.lower()
+    for pattern, categories in _SECTION_CLASSIFY_MAP:
+        if re.search(pattern, title_lower):
+            return list(categories)
+    return []
+
+
 def parse_focus_context(file_path: str) -> Dict[str, Any]:
-    """Extract Findings/Issues/Decisions tables from focus_context.md."""
+    """Extract Findings/Issues/Decisions from focus_context.md.
+
+    Uses strict table parsing as fast path. Falls back to section-based
+    detection so free-form content is still surfaced for archiving.
+    """
     result = {
         "findings": [],
         "issues": [],
         "decisions": [],
+        "sections": [],
         "plan_status": {"total": 0, "completed": 0, "phases": []}
     }
 
@@ -109,10 +165,18 @@ def parse_focus_context(file_path: str) -> Dict[str, Any]:
         logger.error("parse_focus_context", e)
         return result
 
-    # Parse tables
+    # Fast path: strict table parsing
     result["findings"] = parse_markdown_table(content, "Findings")
     result["issues"] = parse_markdown_table(content, "Issues")
     result["decisions"] = parse_markdown_table(content, "Decisions")
+
+    # Fallback: section-based detection (always populate for callers)
+    skip_titles = {"plan", "task"}
+    result["sections"] = [
+        {**s, "suggested_categories": classify_section(s["title"])}
+        for s in extract_sections(content)
+        if s["title"].lower() not in skip_titles
+    ]
 
     # Parse plan checkboxes
     plan_match = re.search(r"## Plan\s*\n(.*?)(?=\n## |\Z)", content, re.DOTALL)
@@ -336,6 +400,7 @@ def generate_summary(project_path: str) -> Dict[str, Any]:
         "findings": context["findings"],
         "issues": context["issues"],
         "decisions": context["decisions"],
+        "sections": context["sections"],
         "notable_operations": notable
     }
 
@@ -347,8 +412,7 @@ def print_summary(summary: Dict[str, Any]) -> None:
     logger.info("print_summary", "Printing session summary")
 
     # Log full summary to verbose
-    import json as json_module
-    logger.verbose("done_summary", json_module.dumps(summary, indent=2, ensure_ascii=False, default=str))
+    logger.verbose("done_summary", json.dumps(summary, indent=2, ensure_ascii=False, default=str))
 
     parts = []
     parts.append("=" * 60)
@@ -391,6 +455,16 @@ def print_summary(summary: Dict[str, Any]) -> None:
         for d in summary["decisions"]:
             parts.append(f"  - {d.get('Decision', 'N/A')}")
 
+    # Section-based fallback (when no table items found)
+    has_table_items = summary["findings"] or summary["issues"] or summary["decisions"]
+    sections = summary.get("sections", [])
+    if not has_table_items and sections:
+        parts.append(f"\n## Sections ({len(sections)} detected)")
+        for s in sections:
+            cats = s.get("suggested_categories", [])
+            cats_str = f" [{', '.join(cats)}]" if cats else ""
+            parts.append(f"  - {s['title']} ({s['line_count']} lines){cats_str}")
+
     # Notable operations
     if summary["notable_operations"]:
         parts.append(f"\n## Notable Operations ({len(summary['notable_operations'])} items)")
@@ -418,12 +492,17 @@ def print_summary(summary: Dict[str, Any]) -> None:
 
 def main():
     global logger, CONFIG, FOCUS_DIR, FOCUS_CONTEXT_FILE, OPERATIONS_FILE
+    global DONE_CONFIG, ERROR_PATTERNS, EDIT_TOOLS, REPEATED_EDIT_THRESHOLD
 
     # Use cwd directly - Claude Code always runs from project root
     project_path = os.getcwd()
 
     # Reload config with project path (merges project config)
     CONFIG = load_config(project_path)
+    DONE_CONFIG = CONFIG.get("done", {})
+    ERROR_PATTERNS = DONE_CONFIG.get("error_patterns", [])
+    EDIT_TOOLS = DONE_CONFIG.get("edit_tools", [])
+    REPEATED_EDIT_THRESHOLD = DONE_CONFIG.get("repeated_edit_threshold", 3)
 
     # Convert to absolute paths (only if relative)
     if not os.path.isabs(FOCUS_DIR):

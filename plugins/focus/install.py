@@ -14,17 +14,18 @@ PLACEHOLDER = "{{FOCUS_PLUGIN_ROOT}}"
 MARKER_FILE = ".installed"
 
 
-def _output_json(message: str, is_error: bool = False):
+def _output_json(message: str, is_error: bool = False, system_message: str = None):
     """Output message in Claude Code hook JSON format."""
     if is_error:
         output = {"decision": "block", "reason": message}
     else:
-        output = {
-            "hookSpecificOutput": {
-                "hookEventName": "SessionStart",
-                "additionalContext": message
-            }
+        hook_output = {
+            "hookEventName": "SessionStart",
+            "additionalContext": message
         }
+        if system_message:
+            hook_output["systemMessage"] = system_message
+        output = {"hookSpecificOutput": hook_output}
     print(json.dumps(output))
 
 
@@ -100,7 +101,7 @@ def main():
 
 [IMPORTANT] Tell the user: Focus plugin installed successfully!
 Please restart Claude Code (exit and re-enter) to use the plugin properly."""
-        _output_json(msg)
+        _output_json(msg, system_message="Focus plugin installed. Please restart Claude Code to use the plugin.")
 
 
 if __name__ == "__main__":

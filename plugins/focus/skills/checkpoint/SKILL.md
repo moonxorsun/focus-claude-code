@@ -50,7 +50,7 @@ Options:
 
 1. **Processes sessions from old to new** (skips current session)
 2. **Error detection** → writes to `pending_issues.md`
-3. **Omission detection** → calls Haiku API to find unrecorded Issues/Decisions/Findings
+3. **Omission detection** → calls Haiku API to find unrecorded information
 4. **Removes processed session records** from operations.jsonl
 
 ## Step 3: Handle Omission Detection Results
@@ -65,9 +65,9 @@ The script outputs omission detection results like:
 ```
 
 For each item:
-1. **[Issue]** → Add to `focus_context.md` Issues table
-2. **[Decision]** → Add to `focus_context.md` Decisions table
-3. **[Finding]** → Add to `focus_context.md` Findings table
+1. **[Issue]** → Add to the appropriate section in `focus_context.md`
+2. **[Decision]** → Add to the appropriate section in `focus_context.md`
+3. **[Finding]** → Add to the appropriate section in `focus_context.md`
 4. **NONE** or **ERROR** → No action needed
 
 ## Step 4: Review Pending Issues
@@ -94,7 +94,7 @@ Format in pending_issues.md:
 
 ## Step 5: Archive Valuable Information (Optional)
 
-For items in Findings/Issues/Decisions tables worth persisting:
+For valuable information in focus_context.md worth persisting to project docs:
 
 | Category | Destination |
 |----------|-------------|
@@ -104,7 +104,7 @@ For items in Findings/Issues/Decisions tables worth persisting:
 | Troubleshooting | Use `/focus:done` for archival |
 | AI Norm | `.claude/CLAUDE.md` |
 
-After archiving, remove the item from focus_context.md tables.
+After archiving, remove the item from focus_context.md.
 
 ## Step 6: Optional Git Commit
 
@@ -133,7 +133,7 @@ In `.claude/config/focus.json`:
 "checkpoint": {
     "error_detection": true,
     "omission_detection": true,
-    "use_haiku": true,
+    "use_haiku": false,
     "haiku_max_tokens": 500,
     "omission_char_budget": 10000
 }

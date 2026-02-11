@@ -19,6 +19,7 @@ Modes:
 import argparse
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Dict, List, Any, Tuple, Optional
@@ -28,7 +29,6 @@ os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
 
 # Reconfigure stdout/stderr for Windows
 if sys.platform == 'win32':
-    import io
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     if hasattr(sys.stderr, 'reconfigure'):
@@ -45,7 +45,7 @@ from focus_core import (
 import extract_session_info
 from extract_session_info import (
     generate_summary, print_summary, parse_focus_context,
-    build_transcript_index, find_notable_operations
+    build_transcript_index, find_notable_operations, extract_sections
 )
 from recover_context import filter_session_from_end
 
@@ -61,8 +61,8 @@ def output_message(tag: str, message: str, hook_event: str):
     _output_message(tag, message, hook_event, logger)
 
 
-def get_current_session_id(operations: List[Dict]) -> Optional[str]:
-    """Get current session ID from latest operation."""
+def get_latest_session_id(operations: List[Dict]) -> Optional[str]:
+    """Get latest session ID from operations (for checkpoint exclusion)."""
     for op in reversed(operations):
         sid = op.get('ids', {}).get('session_id')
         if sid:
@@ -72,7 +72,7 @@ def get_current_session_id(operations: List[Dict]) -> Optional[str]:
 
 def get_sessions_to_process(operations: List[Dict], project_path: str) -> List[Tuple[str, Path]]:
     """Get sessions to process (oldest first, excluding current)."""
-    current_sid = get_current_session_id(operations)
+    current_sid = get_latest_session_id(operations)
     all_sids = get_all_session_ids_from_operations(operations)
 
     project_dir = get_project_dir(project_path)
@@ -147,7 +147,7 @@ If nothing is omitted, return only: NONE"""
 
 
 def get_recorded_content(focus_context_file: str) -> str:
-    """Extract recorded Issues/Decisions/Findings from focus_context.md."""
+    """Extract recorded content from focus_context.md for omission comparison."""
     if not os.path.exists(focus_context_file):
         return "(empty)"
 
@@ -155,16 +155,16 @@ def get_recorded_content(focus_context_file: str) -> str:
         with open(focus_context_file, 'r', encoding='utf-8') as f:
             content = f.read()
 
-        # Extract relevant sections
-        import re
-        sections = []
-        for header in ["## Issues", "## Decisions", "## Findings"]:
-            pattern = rf"({re.escape(header)}\s*\n)(.*?)(?=\n## |\Z)"
-            match = re.search(pattern, content, re.DOTALL)
-            if match:
-                sections.append(match.group(1) + match.group(2).strip())
+        # Extract all ## sections (skip Task and Plan which are structural)
+        sections = extract_sections(content)
+        skip_titles = {"task", "plan"}
+        relevant = [
+            f"## {s['title']}\n{s['content']}"
+            for s in sections
+            if s['title'].lower() not in skip_titles
+        ]
 
-        return "\n\n".join(sections) if sections else "(empty)"
+        return "\n\n".join(relevant) if relevant else "(empty)"
     except Exception as e:
         logger.error("get_recorded_content", e)
         return "(error reading file)"
@@ -381,9 +381,9 @@ def main():
         # Instruction for AI
         output_message("instructions", """
 [REQUIRED] Based on the omission detection results above:
-1. Add [Issue] items to the Issues table in focus_context.md
-2. Add [Decision] items to the Decisions table in focus_context.md
-3. Add [Finding] items to the Findings table in focus_context.md
+1. Add [Issue] items to the appropriate section in focus_context.md
+2. Add [Decision] items to the appropriate section in focus_context.md
+3. Add [Finding] items to the appropriate section in focus_context.md
 4. If result is NONE or ERROR, no action needed
 """, "PostToolUse")
     else:

@@ -389,8 +389,8 @@ def check_constraints(
 def format_constraint_message(message: str, action: str) -> str:
     """Format constraint message with appropriate prefix."""
     if action == "block":
-        return f"[BLOCK] {message}"
+        return f"[focus] [BLOCK] {message}"
     elif action == "warn":
-        return f"[WARN] {message}"
+        return f"[focus] [WARN] R7: {message}"
     else:  # remind
-        return f"[REMIND] {message}"
+        return f"[focus] [REMIND] R7: {message}"
