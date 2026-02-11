@@ -27,6 +27,7 @@ FAILURE_COUNT_FILE = os.environ.get("CLAUDE_FOCUS_FAILURE_FILE", f"{FOCUS_DIR}/f
 CONFIRM_STATE_FILE = os.environ.get("CLAUDE_FOCUS_CONFIRM_FILE", f"{FOCUS_DIR}/confirm_state.json")
 PENDING_ISSUES_FILE = os.environ.get("CLAUDE_FOCUS_PENDING_ISSUES_FILE", f"{FOCUS_DIR}/pending_issues.md")
 REMINDER_STATE_FILE = os.environ.get("CLAUDE_FOCUS_REMINDER_STATE_FILE", f"{FOCUS_DIR}/reminder_state.json")
+SKILL_REVIEW_FILE = os.environ.get("CLAUDE_FOCUS_SKILL_REVIEW_FILE", f"{FOCUS_DIR}/skill_review_state.json")
 # Config file path (from plugin root, fallback to script directory)
 PLUGIN_ROOT = os.environ.get('CLAUDE_PLUGIN_ROOT', os.path.dirname(__file__))
 CONFIG_FILE = (
@@ -573,13 +574,15 @@ def check_and_trigger_reminders(
     config: Dict,
     project_path: str = None,
     logger=None
-) -> List[str]:
+) -> tuple:
     """
     Check all configured reminders and return file paths that should be reminded.
     Does NOT reset counters — call confirm_reminder_read() when AI actually reads the file.
 
     Returns:
-        List of file_path strings for files needing reminder
+        (results, errors) tuple:
+        - results: List of file_path strings for files needing reminder
+        - errors: List of file_path strings for configured but missing files
     """
     import time
 
@@ -588,15 +591,16 @@ def check_and_trigger_reminders(
 
     reminders_config = config.get("reminders", {})
     if not reminders_config.get("enabled", True):
-        return []
+        return [], []
 
     files_config = reminders_config.get("files", [])
     if not files_config:
-        return []
+        return [], []
 
     state = load_reminder_state(project_path, logger)
     current_time = time.time()
     results = []
+    errors = []
     state_changed = False
 
     for file_cfg in files_config:
@@ -626,17 +630,18 @@ def check_and_trigger_reminders(
         if last_time == 0:
             should_remind = True
 
-        if should_remind:
+        if should_remind and not file_state.get("pending"):
             abs_path = file_path if os.path.isabs(file_path) else os.path.join(project_path, file_path)
             if os.path.exists(abs_path):
                 results.append(file_path)
+                file_state["pending"] = True
+                state[file_path] = file_state
+                state_changed = True
             else:
+                errors.append(file_path)
                 if logger:
                     logger.error("check_reminders", f"Reminder file not found: {file_path}")
-            file_state["pending"] = True
-            state[file_path] = file_state
-            state_changed = True
-        else:
+        elif not file_state.get("pending"):
             file_state["turns_since_reminder"] = turns_count
             state[file_path] = file_state
             state_changed = True
@@ -644,10 +649,10 @@ def check_and_trigger_reminders(
     if state_changed:
         save_reminder_state(state, project_path, logger)
 
-    return results
+    return results, errors
 
 
-def confirm_reminder_read(read_path: str, project_path: str = None, logger=None) -> bool:
+def confirm_reminder_read(read_path: str, project_path: str = None, logger=None) -> str:
     """
     Confirm that AI has read a reminded file. Resets that file's counter.
 
@@ -656,7 +661,7 @@ def confirm_reminder_read(read_path: str, project_path: str = None, logger=None)
         project_path: Project root path
 
     Returns:
-        True if a pending reminder was confirmed and reset
+        The confirmed file_path string if a pending reminder was reset, empty string otherwise
     """
     import time
 
@@ -664,7 +669,7 @@ def confirm_reminder_read(read_path: str, project_path: str = None, logger=None)
         project_path = os.getcwd()
 
     state = load_reminder_state(project_path, logger)
-    confirmed = False
+    confirmed_path = ""
     read_abs = os.path.normcase(os.path.abspath(read_path))
 
     for file_path, file_state in state.items():
@@ -677,10 +682,10 @@ def confirm_reminder_read(read_path: str, project_path: str = None, logger=None)
             file_state["last_reminder_time"] = time.time()
             file_state["turns_since_reminder"] = 0
             state[file_path] = file_state
-            confirmed = True
+            confirmed_path = file_path
             break
 
-    if confirmed:
+    if confirmed_path:
         save_reminder_state(state, project_path, logger)
 
-    return confirmed
+    return confirmed_path

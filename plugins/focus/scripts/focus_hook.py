@@ -12,8 +12,8 @@ from focus_core import (
     load_config, load_json_file, atomic_write_json,
     output_message as _output_message, output_error, flush_output,
     FOCUS_DIR, FOCUS_CONTEXT_FILE, OPERATIONS_FILE, COUNTER_FILE,
-    FAILURE_COUNT_FILE, CONFIRM_STATE_FILE, check_and_trigger_reminders,
-    confirm_reminder_read
+    FAILURE_COUNT_FILE, CONFIRM_STATE_FILE, SKILL_REVIEW_FILE,
+    check_and_trigger_reminders, confirm_reminder_read
 )
 from constraints import check_constraints, format_constraint_message
 
@@ -440,6 +440,39 @@ def get_skill_path():
     return None
 
 
+def load_skill_review_state():
+    """Load skill review state from independent file."""
+    if not os.path.exists(SKILL_REVIEW_FILE):
+        return {"count": 0, "pending": False}
+    return load_json_file(SKILL_REVIEW_FILE) or {"count": 0, "pending": False}
+
+
+def save_skill_review_state(data):
+    """Save skill review state to independent file."""
+    atomic_write_json(SKILL_REVIEW_FILE, data)
+
+
+def confirm_skill_review_read(read_path: str) -> bool:
+    """Confirm AI has read SKILL.md after skill review reminder. Resets counter."""
+    state = load_skill_review_state()
+    if not state.get("pending"):
+        return False
+    skill_path = get_skill_path()
+    if not skill_path:
+        return False
+    read_abs = os.path.normcase(os.path.abspath(read_path))
+    skill_abs = os.path.normcase(os.path.abspath(skill_path))
+    if read_abs == skill_abs:
+        state["pending"] = False
+        state["count"] = 0
+        state["last_review"] = datetime.now().isoformat()
+        save_skill_review_state(state)
+        output_message("skill_review_confirmed", "[focus] SKILL.md re-read completed", "PostToolUse",
+                       system_message="[focus] AI has re-read start/SKILL.md")
+        return True
+    return False
+
+
 def increment_and_check_skill_review(tool):
     """Increment skill review counter and trigger reminder if threshold reached.
 
@@ -451,8 +484,8 @@ def increment_and_check_skill_review(tool):
     if not skill_review_config.get("enabled", True):
         return
 
-    data = load_counter()
-    review_count = data.get("skill_review_count", 0) + 1
+    state = load_skill_review_state()
+    review_count = state.get("count", 0) + 1
     review_threshold = skill_review_config.get("threshold", 30)
     time_minutes = skill_review_config.get("time_minutes", 60)
     mode = skill_review_config.get("mode", "both")
@@ -465,9 +498,10 @@ def increment_and_check_skill_review(tool):
 
     # Time-based check
     if mode in ("time", "both"):
-        last_review = data.get("last_skill_review")
+        last_review = state.get("last_review")
         if not last_review:
-            should_trigger = True
+            # First run: initialize timestamp, don't trigger yet
+            state["last_review"] = datetime.now().isoformat()
         else:
             try:
                 last_time = datetime.fromisoformat(last_review)
@@ -476,17 +510,16 @@ def increment_and_check_skill_review(tool):
             except (ValueError, TypeError):
                 should_trigger = True
 
-    if should_trigger:
+    if should_trigger and not state.get("pending"):
         skill_path = get_skill_path()
         if skill_path:
             output_message("skill_review", f"[focus] Please re-read {skill_path} to refresh R1-R7 rules", "PostToolUse",
-                           system_message="[focus] R1-R7 rules may have drifted, AI is re-reading start/SKILL.md")
-        data["skill_review_count"] = 0
-        data["last_skill_review"] = datetime.now().isoformat()
-    else:
-        data["skill_review_count"] = review_count
+                           system_message="[focus] AI should re-read start/SKILL.md to refresh R1-R7 rules")
+        state["pending"] = True
+    elif not state.get("pending"):
+        state["count"] = review_count
 
-    save_counter(data)
+    save_skill_review_state(state)
 
 
 def increment_and_check_counter(tool):
@@ -540,12 +573,11 @@ Recommended for this check: {recs_str}
 """
         output_message("info_check", msg, "PostToolUse")
 
-        # Reset counter (but keep last_full_reminder)
-        data_to_save = {"counts": {}, "total_weighted": 0}
+        # Reset counter (but keep non-counter fields)
         current_data = load_counter()
-        if "last_full_reminder" in current_data:
-            data_to_save["last_full_reminder"] = current_data["last_full_reminder"]
-        save_counter(data_to_save)
+        current_data["counts"] = {}
+        current_data["total_weighted"] = 0
+        save_counter(current_data)
     else:
         # Save updated counter
         data["counts"] = counts
@@ -745,7 +777,7 @@ Last activity: {time_str} ({time_ago})
 
 def main():
     global logger, CONFIG, START_CONFIG, THRESHOLD, MAX_STRIKES, ERROR_PATTERNS, WEIGHTS, SEARCH_TOOLS, MODIFY_TOOLS, RECOMMENDATIONS
-    global FOCUS_DIR, SESSION_FILE, COUNTER_FILE, OPERATIONS_FILE, FAILURE_COUNT_FILE, CONFIRM_STATE_FILE
+    global FOCUS_DIR, SESSION_FILE, COUNTER_FILE, OPERATIONS_FILE, FAILURE_COUNT_FILE, CONFIRM_STATE_FILE, SKILL_REVIEW_FILE
 
     # Use cwd directly - Claude Code always runs from project root
     project_path = os.getcwd()
@@ -774,6 +806,8 @@ def main():
         FAILURE_COUNT_FILE = os.path.join(project_path, FAILURE_COUNT_FILE)
     if not os.path.isabs(CONFIRM_STATE_FILE):
         CONFIRM_STATE_FILE = os.path.join(project_path, CONFIRM_STATE_FILE)
+    if not os.path.isabs(SKILL_REVIEW_FILE):
+        SKILL_REVIEW_FILE = os.path.join(project_path, SKILL_REVIEW_FILE)
 
     parser = argparse.ArgumentParser(description="Focus plugin hook handler")
     parser.add_argument("--hook", required=True, choices=["pre", "post", "stop", "user", "session-start"])
@@ -829,11 +863,15 @@ def main():
             reminders_config = CONFIG.get("reminders", {})
             require_focus = reminders_config.get("require_focus_session", False)
             if not require_focus or focus_session_active:
-                reminders = check_and_trigger_reminders(CONFIG, project_path, logger)
+                reminders, errors = check_and_trigger_reminders(CONFIG, project_path, logger)
                 for file_path in reminders:
                     short_path = os.path.basename(file_path)
                     output_message("reminder", f"[focus] R6: Please Read {file_path}", "UserPromptSubmit",
-                                   system_message=f"[focus] R6: AI is reading {short_path}")
+                                   system_message=f"[focus] R6: AI should read {short_path}")
+                if errors:
+                    err_list = ", ".join(errors)
+                    output_error(f"[focus] Reminder file(s) not found: {err_list}. Check reminders.files in focus config.", "UserPromptSubmit", block=True, logger=logger)
+                    sys.exit(1)
 
         # Other hooks only run when focus session is active
         if not focus_session_active:
@@ -871,7 +909,12 @@ def main():
                 if isinstance(tool_input, dict):
                     read_path = tool_input.get("file_path", "")
                     if read_path:
-                        confirm_reminder_read(read_path, project_path, logger)
+                        confirmed_file = confirm_reminder_read(read_path, project_path, logger)
+                        if confirmed_file:
+                            short = os.path.basename(confirmed_file)
+                            output_message("reminder_confirmed", f"[focus] R6: {confirmed_file} read confirmed", "PostToolUse",
+                                           system_message=f"[focus] R6: AI has read {short}")
+                        confirm_skill_review_read(read_path)
 
             # Information Persistence Reminder (after acquiring info)
             if args.tool in SEARCH_TOOLS:
