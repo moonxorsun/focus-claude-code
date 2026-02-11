@@ -66,14 +66,14 @@ See [features.md](docs/features.md) for detailed specifications.
 ┌───────────────────┴───────┐                       │            │
 │     focus_context.md      │───────────────────────┤            │ [Lookup]
 │    (during session)       │                       │            ▼
-│  ┌──────┬────────────────┐ │                       │  ┌────────────────────┐
-│  │ Task │      Plan      │ │                       │  │ Session Transcript │
-│  └──────┴────────────────┘ │                       └──┤ (Claude Code JSONL)│
+│  ┌──────┬───────────────┐ │                       │  ┌────────────────────┐
+│  │ Task │      Plan     │ │                       │  │ Session Transcript │
+│  └──────┴───────────────┘ │                       └──┤ (Claude Code JSONL)│
 └─────┬─────────────────────┘                          └─────────┬──────────┘
       │                 ^                  [command:checkpoint]  │
       │                 │                                        │
       │                 └────────────────────────────────────────┤
-      │ [command:done]                               [auto-extract]
+      │ [command:done]                             [auto-extract]│
       │                                                          ▼
       │                                          ┌────────────────────────────┐
       │                                          │    pending_issues.md       │
