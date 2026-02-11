@@ -24,6 +24,12 @@ Development findings, decisions, and internal notes from Focus plugin developmen
 | Hook Output Format | Must use `hookSpecificOutput` JSON wrapper for context injection |
 | Message Collection | Use `flush_output()` to avoid multi-JSON validation failures |
 | **Stop Hook Limitation** | Stop hook stdout NOT visible to AI per official docs. Only users see it in Verbose mode. To inject to AI context requires `decision: "block"` which prevents stopping |
+| **systemMessage** | Top-level JSON field visible to user terminal (`{event}:{tool} says: {msg}`). `additionalContext` is AI-only (system-reminder injection). Two separate channels. |
+| **PostToolUseFailure** | Only triggers for infrastructure errors (Bash non-zero exit, Write ENOENT). `<tool_use_error>` business errors (Read/Edit/Glob/Grep file not found) do NOT trigger any post hook. |
+| **State File Isolation** | Different features must use independent state files. Shared files cause read/write competition when multiple functions load/save in same hook call. |
+| **Pending/Read-Confirm Pattern** | Set `pending=true` on trigger (don't reset counter). Only reset when AI actually reads the file (path match in PostToolUse Read). Prevents re-trigger during pending. |
+| **Prompt Execution Hierarchy** | 6 levels: Hard block (sys.exit) > [REQUIRED] instructions > SKILL.md rules (R1-R7) > Soft warnings > Periodic reminders > Passive hints. Position determines authority, not wording. |
+| **SKILL.md vs Hook Reminders** | SKILL.md = early context, treated as "work norms" (high authority, forgotten over time). Hook reminders = end of context, treated as "runtime signals" (low authority, never forgotten). Complementary. |
 
 ---
 

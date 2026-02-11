@@ -99,6 +99,9 @@ If ANY criteria is YES → Archive using bugs/troubleshooting format (see Archiv
    - `.claude/tmp/focus/current_session_source.txt`
    - `.claude/tmp/focus/focus_plugin_root.txt`
    - `.claude/tmp/focus/confirm_state.json`
+   - `.claude/tmp/focus/failure_count.json`
+   - `.claude/tmp/focus/skill_review_state.json`
+   - `.claude/tmp/focus/reminder_state.json`
 
 ## Step 5: Report
 

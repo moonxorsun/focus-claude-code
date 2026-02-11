@@ -72,7 +72,7 @@
             "use_haiku": false
         },
         "threshold": 5,
-        "recite_enabled": true,
+        "recite_enabled": false,
         "recite_threshold": 3,
         "skill_review": {
             "enabled": true,

@@ -4,6 +4,48 @@ All notable changes and bug fixes for the Focus plugin.
 
 ---
 
+## [1.4.0] - 2026-02-11
+
+### Added
+
+- **R1-R7 Behavioral Rules** - Replaced Critical Rules 1-6 with numbered behavioral norms in start/SKILL.md
+  - R1: Confirm before modifying code
+  - R2: Record information to focus_context.md promptly
+  - R3: Don't repeat failures (3-Strike)
+  - R4: Update context after modifications
+  - R5: Verify commits are within Plan scope
+  - R6: Read files when reminded by hooks
+  - R7: Fix constraint warnings immediately
+- **systemMessage Dual-Channel** - Hook output now supports both `additionalContext` (AI-visible) and `systemMessage` (user-visible terminal messages)
+- **Section-Based Archive (Fallback)** - When no standard tables exist in focus_context.md, `focus_done.py` detects free-form sections (`## Heading`) and suggests archive categories
+- **SKILL Review Reminder** - Independent periodic mechanism triggers AI to re-read start/SKILL.md (count-based and/or time-based, configurable)
+- **Pending/Read-Confirm Mechanism** - File reminders and SKILL review set `pending=true` on trigger, only reset when AI actually reads the file
+- **Two-Phase systemMessage** - Trigger shows "AI should read {file}", confirmation shows "AI has read {file}" for user visibility
+- **`recite_enabled` Config Option** - Toggle objective recitation independently from other reminders
+
+### Changed
+
+- **start/SKILL.md** - Complete rewrite: R1-R7 rules, simplified template (only Task + Plan required), information persistence flow, Category reference
+- **done/SKILL.md** - Added Category-to-archive-target mapping, section-based archive instructions
+- **checkpoint/SKILL.md** - Table references replaced with generic section/free-form wording
+- **Hook Short Reminders** - Now reference rule numbers: `[focus] R{n}: {description}`
+- **Information Persistence Reminder** - Simplified text, references R2
+- **File Reminders** - No longer inject full file content, only remind path (`[focus] R6: Please Read {file}`)
+- **Constraint Warnings** - Output includes R7 reference prefix
+- **install.py** - Installation messages now use systemMessage for user visibility
+- **focus_context.md Template** - Only `## Task` and `## Plan` (with checkboxes) are required; all other sections are free-form
+
+### Fixed
+
+- **systemMessage JSON position** - `systemMessage` moved to top-level output (was incorrectly inside `hookSpecificOutput`)
+- **Counter reset wiping unrelated fields** - `increment_and_check_counter` now preserves non-counter fields when resetting
+- **SKILL review state file isolation** - Separated from `action_count.json` to independent `skill_review_state.json` to prevent read/write competition
+- **checkpoint_session.py table dependency** - `get_recorded_content` now uses `extract_sections()` instead of hardcoded Issues/Decisions/Findings headers
+- **extract_session_info.py print_summary()** - Adapted for free-form sections when no standard tables exist
+- **25 items from comprehensive code review** - Dead code cleanup, bug fixes, documentation sync, configuration consistency
+
+---
+
 ## [1.3.2] - 2026-02-10
 
 ### Fixed

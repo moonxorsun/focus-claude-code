@@ -41,32 +41,30 @@ See [context_engineering_notes.md](references/context_engineering_notes.md) for 
 5. Keep the Wrong Stuff In
 6. Don't Get Few-Shotted
 
-### Implementation Status
+### Behavioral Rules (R1-R7)
 
-**Completion Rate**: 8/13 = **62%** (excluding concept-only: 8/11 = **73%**)
+Defined in `start/SKILL.md`, enforced by hook short reminders (`[focus] R{n}: ...`).
 
-#### Critical Rules (6)
+| Rule | Description | Implementation |
+|------|-------------|----------------|
+| R1 | Confirm before modifying code | `handle_confirm_before_modify()` + Haiku API, hook: `[focus] R1: Confirm before modifying {file}` |
+| R2 | Record information promptly | `increment_and_check_counter()` weight-based reminder, full/simplified versions |
+| R3 | Don't repeat failures (3-Strike) | `check_and_update_strikes()` failure detection, hook: `[focus] R3: Strike {n}/{max}` |
+| R4 | Update context after modifications | PostToolUse `remind_update()`, hook: `[focus] R4: Update context \| Phases: X/Y` |
+| R5 | Verify commits within Plan scope | `check_commit_in_plan()`, hook: `[focus] R5: Commit "{msg}" within Plan scope?` |
+| R6 | Read files when reminded by hooks | `check_and_trigger_reminders()` + `confirm_reminder_read()`, pending/read-confirm mechanism |
+| R7 | Fix constraint warnings immediately | `constraints.py` output prefixed with `[WARN] R7:` / `[REMIND] R7:` |
 
-| # | Rule | Status | Implementation |
-|---|------|--------|----------------|
-| 1 | Create Plan First | Implemented | SessionStart hook auto-detects unfinished session |
-| 2 | Information Persistence | Implemented | `increment_and_check_counter()` weight-based reminder |
-| 3 | Confirm Before Modify | Implemented | `handle_confirm_before_modify()` + Haiku API |
-| 4 | Update After Act | Implemented | PostToolUse `remind_update()` reminder |
-| 5 | Log ALL Errors | Implemented | operations.jsonl records all tool_use_id, checkpoint/done extracts errors from transcript |
-| 6 | Never Repeat Failures | Implemented | 3-Strike forces alternative approach on 2nd failure |
+### Additional Mechanisms
 
-#### Supplementary Rules (7)
-
-| # | Rule | Status | Implementation |
-|---|------|--------|----------------|
-| 7 | 3-Strike Error Protocol | Implemented | `check_and_update_strikes()` failure detection |
-| 8 | 5-Question Reboot Test | Concept | Theoretical validation method |
-| 9 | Read vs Write Decision Matrix | Concept | Decision guide |
-| 10 | Attention Recitation | Implemented | PreToolUse `recite_objectives()` |
-| 11 | Session Catchup | Implemented | `/focus:recover` restores session context |
-| 12 | Phase Completion Check | Implemented | Stop hook `check_phases_complete()` |
-| 13 | Bug Archival Assessment | Partial | done skill provides guidance |
+| Mechanism | Status | Implementation |
+|-----------|--------|----------------|
+| Session Detection | Implemented | SessionStart hook auto-detects unfinished session |
+| Attention Recitation | Implemented (default off) | PreToolUse `recite_objectives()`, `recite_enabled` config |
+| SKILL Review Reminder | Implemented | `increment_and_check_skill_review()`, independent `skill_review_state.json`, pending/read-confirm |
+| Session Recovery | Implemented | `/focus:recover` restores context from transcripts |
+| Section-Based Archive | Implemented | `extract_sections()` fallback when no standard tables in focus_context.md |
+| systemMessage Dual-Channel | Implemented | `additionalContext` (AI-visible) + `systemMessage` (user terminal) |
 
 ---
 
@@ -141,13 +139,19 @@ See [context_engineering_notes.md](references/context_engineering_notes.md) for 
 |   --hook pre --tool Write/Edit      -> constraints + confirm|
 |   --hook pre --tool Bash            -> constraints + recite |
 | PostToolUse:                                               |
+|   --hook post --tool Read           -> confirm_reminder     |
+|                                     -> confirm_skill_review |
 |   --hook post --tool Read/Glob/Grep -> info_persistence    |
+|                                     -> skill_review_check  |
 |   --hook post --tool WebSearch/Fetch-> info_persistence    |
+|                                     -> skill_review_check  |
 |   --hook post --tool Write/Edit/Bash-> remind_update       |
+|   --hook post --tool Bash           -> commit_check        |
 |   (all tools)                       -> check_strikes       |
 | Other:                                                     |
-|   --hook stop                       -> check_phases_complete|
+|   --hook stop                       -> record_operation    |
 |   --hook user                       -> reset_confirm_state |
+|                                     -> file_reminders (R6) |
 |   --hook session-start              -> check_session_start |
 +------------------------------------------------------------+
          |
